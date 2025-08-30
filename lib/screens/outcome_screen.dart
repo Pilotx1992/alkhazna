@@ -314,7 +314,7 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
                                                 backgroundColor: const Color(0xFFE53E3E),
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(30),
                           ),
                           elevation: 0,
                         ),

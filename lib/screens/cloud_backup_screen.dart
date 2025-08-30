@@ -297,7 +297,7 @@ class _CloudBackupScreenState extends State<CloudBackupScreen> {
                                           ),
                                           SizedBox(height: 8),
                                           Text(
-                                            'Create your first cloud backup to keep your data safe',
+                                            'Create your first backup',
                                             style: TextStyle(color: Colors.grey),
                                             textAlign: TextAlign.center,
                                           ),

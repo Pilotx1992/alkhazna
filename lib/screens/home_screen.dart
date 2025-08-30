@@ -7,6 +7,7 @@ import "package:shared_preferences/shared_preferences.dart";
 import "month_page.dart";
 import "backup_screen.dart";
 import "../services/storage_service.dart";
+import "../widgets/backup_status_widget.dart";
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -410,6 +411,15 @@ class _HomeScreenState extends State<HomeScreen> {
           backgroundColor: colorScheme.surface,
           elevation: 0,
           actions: [
+            BackupStatusWidget(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const BackupScreen()),
+                );
+              },
+            ),
+            const SizedBox(width: 8),
             IconButton(
               icon: const Icon(Icons.logout),
               tooltip: 'Sign Out',

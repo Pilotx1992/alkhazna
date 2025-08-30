@@ -1,6 +1,8 @@
 import 'package:al_khazna/screens/backup_management_screen.dart';
 import 'package:al_khazna/screens/cloud_backup_screen.dart';
 import 'package:al_khazna/services/backup_service.dart';
+import 'package:al_khazna/services/enhanced_backup_service.dart';
+import 'package:al_khazna/widgets/backup_status_widget.dart';
 import 'package:flutter/material.dart';
 
 class BackupScreen extends StatefulWidget {
@@ -34,6 +36,11 @@ class _BackupScreenState extends State<BackupScreen> {
       _isLoading = false;
       _currentOperation = '';
     });
+  }
+
+  void _createCloudBackup() async {
+    final enhancedService = EnhancedBackupService();
+    await enhancedService.createManualBackup(context);
   }
 
   void _restoreBackup() async {
@@ -83,6 +90,17 @@ class _BackupScreenState extends State<BackupScreen> {
         title: const Text('Backup & Restore'),
         backgroundColor: Color(0xFF2196F3),
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) => const BackupSettingsDialog(),
+              );
+            },
+          ),
+        ],
       ),
       body: Container(
         decoration: BoxDecoration(
@@ -110,6 +128,8 @@ class _BackupScreenState extends State<BackupScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        // Cloud Backup Status
+                        const BackupStatusWidget(showFullStatus: true),
                         const SizedBox(height: 16),
                         Center(
                           child: Container(
@@ -154,7 +174,7 @@ class _BackupScreenState extends State<BackupScreen> {
                         ),
                         const SizedBox(height: 32),
                         Card(
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                           elevation: 8,
                           margin: const EdgeInsets.symmetric(vertical: 8),
                           child: Padding(
@@ -176,17 +196,38 @@ class _BackupScreenState extends State<BackupScreen> {
                                   ],
                                 ),
                                 const SizedBox(height: 18),
-                                ElevatedButton.icon(
-                                  onPressed: _createBackup,
-                                  icon: const Icon(Icons.add_box_rounded),
-                                  label: const Text('Create Local Backup'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Color(0xFF2196F3),
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
-                                    textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                  ),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: ElevatedButton.icon(
+                                        onPressed: _createBackup,
+                                        icon: const Icon(Icons.add_box_rounded),
+                                        label: const Text('Local'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Color(0xFF2196F3),
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(vertical: 16),
+                                          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: ElevatedButton.icon(
+                                        onPressed: _createCloudBackup,
+                                        icon: const Icon(Icons.cloud_upload),
+                                        label: const Text('Cloud'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.deepPurple,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(vertical: 16),
+                                          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                                 const SizedBox(height: 12),
                                 ElevatedButton.icon(
@@ -199,7 +240,7 @@ class _BackupScreenState extends State<BackupScreen> {
                                     side: const BorderSide(color: Color(0xFF2196F3), width: 2),
                                     padding: const EdgeInsets.symmetric(vertical: 16),
                                     textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                                   ),
                                 ),
                                 const SizedBox(height: 12),
@@ -212,7 +253,7 @@ class _BackupScreenState extends State<BackupScreen> {
                                     side: const BorderSide(color: Color(0xFF2196F3), width: 1.5),
                                     padding: const EdgeInsets.symmetric(vertical: 16),
                                     textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                                   ),
                                 ),
                               ],
@@ -220,7 +261,7 @@ class _BackupScreenState extends State<BackupScreen> {
                           ),
                         ),
                         Card(
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                           elevation: 8,
                           margin: const EdgeInsets.symmetric(vertical: 8),
                           child: Padding(
@@ -243,21 +284,21 @@ class _BackupScreenState extends State<BackupScreen> {
                                 ),
                                 const SizedBox(height: 18),
                                 Text(
-                                  'Secure cloud storage with encryption\n(Requires Firebase setup)',
+                                  'Secure cloud storage with AES-256 encryption\nAutomatic authentication & data protection',
                                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.black54),
                                   textAlign: TextAlign.center,
                                 ),
                                 const SizedBox(height: 16),
                                 ElevatedButton.icon(
-                                  onPressed: null, // Disabled until Firebase is configured
+                                  onPressed: _openCloudBackups,
                                   icon: const Icon(Icons.cloud_upload_rounded),
                                   label: const Text('Cloud Backup & Restore'),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.grey[400],
+                                    backgroundColor: Colors.deepPurple,
                                     foregroundColor: Colors.white,
                                     padding: const EdgeInsets.symmetric(vertical: 16),
                                     textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                                   ),
                                 ),
                               ],

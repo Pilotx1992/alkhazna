@@ -7,6 +7,7 @@ import 'screens/login_screen.dart';
 import 'models/income_entry.dart';
 import 'models/outcome_entry.dart';
 import 'models/entry_list_adapters.dart';
+import 'services/enhanced_backup_service.dart';
 
 class AppTheme {
   static ThemeData get lightTheme {
@@ -68,7 +69,7 @@ class AppTheme {
         color: Colors.white,
         elevation: 4,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(30),
         ),
         margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 0),
         shadowColor: Colors.indigo
@@ -79,7 +80,7 @@ class AppTheme {
           backgroundColor: Colors.indigo,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(30),
           ),
           textStyle: const TextStyle(
               fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'Cairo'),
@@ -95,7 +96,7 @@ class AppTheme {
               Colors.indigo), // Replaced MaterialStateProperty
           shape: WidgetStateProperty.all(RoundedRectangleBorder(
             // Replaced MaterialStateProperty
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(30),
           )),
         ),
       ),
@@ -111,7 +112,7 @@ class AppTheme {
             TextStyle(color: Colors.white, fontSize: 16, fontFamily: 'Cairo'),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(16))),
+            borderRadius: BorderRadius.all(Radius.circular(30))),
       ),
       tabBarTheme: const TabBarThemeData(
         labelColor: Colors.indigo,
@@ -156,6 +157,9 @@ void main() async {
     Hive.registerAdapter(OutcomeEntryListAdapter());
   }
 
+  // Initialize Enhanced Backup Service
+  await EnhancedBackupService().initialize();
+
   runApp(const AlKhaznaApp());
 }
 
@@ -167,7 +171,8 @@ class AlKhaznaApp extends StatelessWidget {
     return MaterialApp(
       title: 'Al Khazna',
       theme: AppTheme.lightTheme,
-  home: LoginScreen(),
+      home: const LoginScreen(),
+      navigatorKey: NavigationService.navigatorKey,
       locale: const Locale('en', ''),
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,

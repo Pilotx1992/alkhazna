@@ -12,7 +12,20 @@
           "package_name": "com.example.alkhazna"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "659394085984-s6g7l8d1pld270i99koq2vcm42kvt48s.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.alkhazna",
+            "certificate_hash": "410b3b71e66173b35bc6b1cf487e1fedfa76be25"
+          }
+        },
+        {
+          "client_id": "659394085984-0abm9c4co7tol94losl3d7355973r1gr.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyD6EFZOWDCM1NbF3jJK9h-a9-54dXGtenY"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "659394085984-0abm9c4co7tol94losl3d7355973r1gr.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

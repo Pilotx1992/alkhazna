@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -177,20 +178,67 @@ class CloudBackupService {
       final backupId = 'backup_${user.uid}_${timestamp.millisecondsSinceEpoch}';
       final backupName = 'Alkhazna_${DateFormat('yyyy-MM-dd_HH-mm-ss').format(timestamp)}';
       
-      // Upload to Firebase Storage
-      final storageRef = _storage.ref().child('backups/${user.uid}/$backupId.alk');
-      final uploadTask = storageRef.putData(Uint8List.fromList(encryptedData));
+      // Store backup data directly in Firestore (bypassing Firebase Storage issues)
+      onProgress?.call('Preparing cloud backup...');
       
-      // Track upload progress
-      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
-        final progress = (snapshot.bytesTransferred / snapshot.totalBytes * 100).round();
-        onProgress?.call('Uploading to cloud... $progress%');
-      });
+      // Split large backup into chunks for Firestore storage
+      final base64Data = base64Encode(encryptedData);
+      const chunkSize = 500000; // ~500KB chunks to stay well under Firestore limits
+      final chunks = <String>[];
       
-      await uploadTask;
+      try {
+        onProgress?.call('Encrypting and compressing backup... 50%');
+        
+        for (int i = 0; i < base64Data.length; i += chunkSize) {
+          final end = (i + chunkSize < base64Data.length) ? i + chunkSize : base64Data.length;
+          chunks.add(base64Data.substring(i, end));
+        }
+        
+        onProgress?.call('Uploading backup to cloud... 75%');
+        
+        // Store chunks individually with delays to avoid rate limiting
+        for (int i = 0; i < chunks.length; i++) {
+          final chunkRef = _firestore
+              .collection('backups')
+              .doc(user.uid)
+              .collection('user_backups')
+              .doc(backupId)
+              .collection('chunks')
+              .doc('chunk_$i');
+          
+          await chunkRef.set({
+            'data': chunks[i],
+            'index': i,
+            'timestamp': timestamp.toIso8601String(),
+          });
+          
+          // Update progress for each chunk
+          final progress = 75 + ((i + 1) / chunks.length * 20).round();
+          onProgress?.call('Uploading backup to cloud... $progress%');
+          
+          // Add small delay to prevent Firestore rate limiting
+          if (i < chunks.length - 1) {
+            await Future.delayed(const Duration(milliseconds: 100));
+          }
+        }
+        
+        onProgress?.call('Cloud backup completed successfully!');
+        
+      } catch (e) {
+        print('Firestore backup error: $e');
+        if (e.toString().contains('permission-denied')) {
+          throw Exception('Permission denied. Please check Firestore security rules.');
+        } else if (e.toString().contains('quota-exceeded')) {
+          throw Exception('Storage quota exceeded. Please upgrade your Firebase plan.');
+        } else if (e.toString().contains('network')) {
+          throw Exception('Network error. Please check your internet connection.');
+        } else {
+          throw Exception('Cloud backup failed: ${e.toString()}');
+        }
+      }
       onProgress?.call('Saving backup metadata...');
 
-      // Save metadata to Firestore
+      // Save metadata to Firestore with chunk info
       final metadata = CloudBackupMetadata(
         id: backupId,
         name: backupName,
@@ -201,12 +249,16 @@ class CloudBackupService {
         appVersion: '1.0.0',
       );
 
+      final metadataWithChunks = metadata.toMap();
+      metadataWithChunks['chunkCount'] = chunks.length;
+      metadataWithChunks['storageType'] = 'firestore';
+
       await _firestore
           .collection('backups')
           .doc(user.uid)
           .collection('user_backups')
           .doc(backupId)
-          .set(metadata.toMap());
+          .set(metadataWithChunks);
 
       onProgress?.call('Cloud backup completed successfully!');
       if (context.mounted) {
@@ -270,15 +322,40 @@ class CloudBackupService {
 
       onProgress?.call('Downloading from cloud...');
       
-      // Download from Firebase Storage
-      final storageRef = _storage.ref().child('backups/${backup.userId}/${backup.id}.alk');
-      final downloadTask = storageRef.getData();
-      final fileBytes = await downloadTask;
+      late List<int> fileBytes;
       
-      if (fileBytes == null) {
+      // Download from Firestore chunks
+      try {
+        final chunksQuery = await _firestore
+            .collection('backups')
+            .doc(backup.userId)
+            .collection('user_backups')
+            .doc(backup.id)
+            .collection('chunks')
+            .orderBy('index')
+            .get();
+        
+        if (chunksQuery.docs.isEmpty) {
+          if (!context.mounted) return false;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Backup data not found in cloud')),
+          );
+          return false;
+        }
+        
+        // Reassemble chunks
+        final buffer = StringBuffer();
+        for (final doc in chunksQuery.docs) {
+          buffer.write(doc.data()['data'] ?? '');
+        }
+        
+        final base64String = buffer.toString();
+        fileBytes = base64Decode(base64String);
+        
+      } catch (e) {
         if (!context.mounted) return false;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to download backup file')),
+          SnackBar(content: Text('Failed to download backup: $e')),
         );
         return false;
       }
@@ -286,9 +363,9 @@ class CloudBackupService {
       onProgress?.call('Decrypting backup...');
       
       // Decrypt the data (same as local backup restore)
-      final salt = fileBytes.sublist(0, 8);
-      final ivBytes = fileBytes.sublist(8, 24);
-      final encryptedBytes = fileBytes.sublist(24);
+      final salt = Uint8List.fromList(fileBytes.sublist(0, 8));
+      final ivBytes = Uint8List.fromList(fileBytes.sublist(8, 24));
+      final encryptedBytes = Uint8List.fromList(fileBytes.sublist(24));
 
       final key = _deriveKey(password, salt);
       final iv = encrypt.IV(ivBytes);
@@ -425,9 +502,19 @@ class CloudBackupService {
         if (!await signInAnonymously(context)) return false;
       }
 
-      // Delete from Firebase Storage
-      final storageRef = _storage.ref().child('backups/${backup.userId}/${backup.id}.alk');
-      await storageRef.delete();
+      // Delete chunks from Firestore subcollection
+      final chunksQuery = await _firestore
+          .collection('backups')
+          .doc(backup.userId)
+          .collection('user_backups')
+          .doc(backup.id)
+          .collection('chunks')
+          .get();
+
+      // Delete chunks individually to avoid batch size limits
+      for (final doc in chunksQuery.docs) {
+        await doc.reference.delete();
+      }
 
       // Delete metadata from Firestore
       await _firestore

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="game_services_id" translatable="false">YOUR_GOOGLE_APP_ID</string>
+    <string name="colorAccent">#2196F3</string>
+    <string name="google_app_id" translatable="false">1:YOUR_PROJECT_NUMBER:android:YOUR_CLIENT_ID</string>
+    <string name="default_web_client_id" translatable="false">YOUR_WEB_CLIENT_ID.apps.googleusercontent.com</string>
+    <string name="gcm_defaultSenderId" translatable="false">YOUR_PROJECT_NUMBER</string>
+    <string name="ga_trackingId" translatable="false">YOUR_TRACKING_ID</string>
+    <string name="database_url" translatable="false">https://YOUR_PROJECT_ID.firebaseio.com</string>
+    <string name="api_key" translatable="false">YOUR_API_KEY</string>
+    <string name="google_crash_reporting_api_key" translatable="false">YOUR_API_KEY</string>
+    <string name="project_id" translatable="false">YOUR_PROJECT_ID</string>
+</resources>
