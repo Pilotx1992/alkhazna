@@ -14,6 +14,7 @@ import 'package:pointycastle/key_derivators/pbkdf2.dart';
 import 'package:pointycastle/macs/hmac.dart';
 import 'package:pointycastle/digests/sha256.dart';
 import 'package:archive/archive_io.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'storage_service.dart';
 
@@ -65,12 +66,122 @@ class CloudBackupService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  
+  static const String _deviceIdKey = 'device_backup_id';
 
   encrypt.Key _deriveKey(String password, Uint8List salt) {
     final derivator = PBKDF2KeyDerivator(HMac(SHA256Digest(), 64))
       ..init(Pbkdf2Parameters(salt, 1000, 32));
     return encrypt.Key(
         derivator.process(Uint8List.fromList(password.codeUnits)));
+  }
+
+  Future<String> _getOrCreateDeviceId() async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    // Try to get existing device ID first
+    String? deviceId = prefs.getString(_deviceIdKey);
+    
+    if (deviceId == null || deviceId.isEmpty) {
+      // Create a device fingerprint based on device characteristics
+      // This will be consistent across reinstalls on the same device
+      deviceId = await _createDeviceFingerprint();
+      
+      // Save it for faster access next time
+      await prefs.setString(_deviceIdKey, deviceId);
+    }
+    
+    return deviceId;
+  }
+
+  Future<String> _createDeviceFingerprint() async {
+    // Create a device fingerprint based on available device characteristics
+    // This should remain consistent across app reinstalls
+    
+    try {
+      // Use device information to create a consistent ID
+      final deviceInfo = Platform.operatingSystem;
+      final locale = Platform.localeName;
+      
+      // Create a hash-like string from available information
+      final combined = '${deviceInfo}_${locale}_android_emulator';
+      final hash = combined.hashCode.abs();
+      
+      return 'device_fp_$hash';
+    } catch (e) {
+      // Fallback to a simple but consistent approach
+      return 'device_fallback_${Platform.operatingSystem.hashCode.abs()}';
+    }
+  }
+
+  Future<void> _migrateOldBackupsIfNeeded() async {
+    try {
+      // Check if user has Firebase auth backups that need migration
+      if (_auth.currentUser != null) {
+        final user = _auth.currentUser!;
+        final deviceId = await _getOrCreateDeviceId();
+        
+        // Skip if device ID is same as user UID (no migration needed)
+        if (deviceId.contains(user.uid)) return;
+        
+        // Check if old backups exist
+        final oldBackupsQuery = await _firestore
+            .collection('backups')
+            .doc(user.uid)
+            .collection('user_backups')
+            .get();
+        
+        if (oldBackupsQuery.docs.isEmpty) return;
+        
+        // Check if new location already has backups (avoid duplicate migration)
+        final newBackupsQuery = await _firestore
+            .collection('backups')
+            .doc(deviceId)
+            .collection('user_backups')
+            .limit(1)
+            .get();
+        
+        if (newBackupsQuery.docs.isNotEmpty) return; // Already migrated
+        
+        // Migrate backups to device ID location
+        for (final doc in oldBackupsQuery.docs) {
+          final backupData = doc.data();
+          backupData['userId'] = deviceId; // Update userId to deviceId
+          
+          await _firestore
+              .collection('backups')
+              .doc(deviceId)
+              .collection('user_backups')
+              .doc(doc.id)
+              .set(backupData);
+          
+          // Migrate chunks as well
+          final chunksQuery = await _firestore
+              .collection('backups')
+              .doc(user.uid)
+              .collection('user_backups')
+              .doc(doc.id)
+              .collection('chunks')
+              .get();
+          
+          for (final chunkDoc in chunksQuery.docs) {
+            await _firestore
+                .collection('backups')
+                .doc(deviceId)
+                .collection('user_backups')
+                .doc(doc.id)
+                .collection('chunks')
+                .doc(chunkDoc.id)
+                .set(chunkDoc.data());
+          }
+        }
+        
+        print('Migrated ${oldBackupsQuery.docs.length} backups to device-based storage');
+      }
+    } catch (e) {
+      print('Backup migration error: $e');
+      // Migration failure shouldn't break the app
+    }
   }
 
   Future<bool> signInAnonymously(BuildContext context) async {
@@ -134,6 +245,7 @@ class CloudBackupService {
       }
 
       final user = _auth.currentUser!;
+      final deviceId = await _getOrCreateDeviceId();
       onProgress?.call('Getting encryption password...');
       
       // Get password from user
@@ -175,7 +287,7 @@ class CloudBackupService {
       
       // Create backup metadata
       final timestamp = DateTime.now();
-      final backupId = 'backup_${user.uid}_${timestamp.millisecondsSinceEpoch}';
+      final backupId = 'backup_${deviceId}_${timestamp.millisecondsSinceEpoch}';
       final backupName = 'Alkhazna_${DateFormat('yyyy-MM-dd_HH-mm-ss').format(timestamp)}';
       
       // Store backup data directly in Firestore (bypassing Firebase Storage issues)
@@ -200,7 +312,7 @@ class CloudBackupService {
         for (int i = 0; i < chunks.length; i++) {
           final chunkRef = _firestore
               .collection('backups')
-              .doc(user.uid)
+              .doc(deviceId)
               .collection('user_backups')
               .doc(backupId)
               .collection('chunks')
@@ -244,7 +356,7 @@ class CloudBackupService {
         name: backupName,
         createdAt: timestamp,
         size: encryptedData.length,
-        userId: user.uid,
+        userId: deviceId,
         deviceInfo: Platform.operatingSystem,
         appVersion: '1.0.0',
       );
@@ -255,7 +367,7 @@ class CloudBackupService {
 
       await _firestore
           .collection('backups')
-          .doc(user.uid)
+          .doc(deviceId)
           .collection('user_backups')
           .doc(backupId)
           .set(metadataWithChunks);
@@ -283,17 +395,29 @@ class CloudBackupService {
         if (!await signInAnonymously(context)) return [];
       }
 
-      final user = _auth.currentUser!;
-      final querySnapshot = await _firestore
+      // Migrate old backups if needed
+      await _migrateOldBackupsIfNeeded();
+
+      final deviceId = await _getOrCreateDeviceId();
+      
+      // First try to get backups from current device ID
+      var querySnapshot = await _firestore
           .collection('backups')
-          .doc(user.uid)
+          .doc(deviceId)
           .collection('user_backups')
           .orderBy('createdAt', descending: true)
           .get();
 
-      return querySnapshot.docs
+      List<CloudBackupMetadata> backups = querySnapshot.docs
           .map((doc) => CloudBackupMetadata.fromMap(doc.data()))
           .toList();
+
+      // If no backups found, try to search for backups from previous installations
+      if (backups.isEmpty) {
+        backups = await _searchForBackupsFromOldDeviceIds(context);
+      }
+
+      return backups;
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -301,6 +425,103 @@ class CloudBackupService {
         );
       }
       return [];
+    }
+  }
+
+  Future<List<CloudBackupMetadata>> _searchForBackupsFromOldDeviceIds(BuildContext context) async {
+    try {
+      // Search for backups that might belong to this device but under different IDs
+      // We'll look for common patterns that might match this device
+      
+      final possibleDeviceIds = [
+        'device_fallback_${Platform.operatingSystem.hashCode.abs()}',
+        'device_fp_${('${Platform.operatingSystem}_${Platform.localeName}_android_emulator').hashCode.abs()}',
+      ];
+
+      // Also try some Firebase auth UIDs from recent sessions
+      if (_auth.currentUser != null) {
+        possibleDeviceIds.add(_auth.currentUser!.uid);
+      }
+
+      List<CloudBackupMetadata> foundBackups = [];
+
+      for (final deviceId in possibleDeviceIds) {
+        try {
+          final querySnapshot = await _firestore
+              .collection('backups')
+              .doc(deviceId)
+              .collection('user_backups')
+              .orderBy('createdAt', descending: true)
+              .limit(10) // Limit to avoid too many queries
+              .get();
+
+          final backups = querySnapshot.docs
+              .map((doc) => CloudBackupMetadata.fromMap(doc.data()))
+              .toList();
+
+          if (backups.isNotEmpty) {
+            foundBackups.addAll(backups);
+            
+            // If we found backups, migrate them to current device ID
+            await _migrateBackupsToCurrentDevice(deviceId, backups);
+            break; // Stop searching once we find backups
+          }
+        } catch (e) {
+          // Continue searching even if one device ID fails
+          print('Failed to search device ID $deviceId: $e');
+        }
+      }
+
+      return foundBackups;
+    } catch (e) {
+      print('Error searching for old backups: $e');
+      return [];
+    }
+  }
+
+  Future<void> _migrateBackupsToCurrentDevice(String oldDeviceId, List<CloudBackupMetadata> backups) async {
+    try {
+      final currentDeviceId = await _getOrCreateDeviceId();
+      if (oldDeviceId == currentDeviceId) return; // No migration needed
+
+      print('Migrating ${backups.length} backups from $oldDeviceId to $currentDeviceId');
+
+      for (final backup in backups) {
+        // Copy backup metadata
+        final backupData = backup.toMap();
+        backupData['userId'] = currentDeviceId;
+
+        await _firestore
+            .collection('backups')
+            .doc(currentDeviceId)
+            .collection('user_backups')
+            .doc(backup.id)
+            .set(backupData);
+
+        // Copy backup chunks
+        final chunksQuery = await _firestore
+            .collection('backups')
+            .doc(oldDeviceId)
+            .collection('user_backups')
+            .doc(backup.id)
+            .collection('chunks')
+            .get();
+
+        for (final chunkDoc in chunksQuery.docs) {
+          await _firestore
+              .collection('backups')
+              .doc(currentDeviceId)
+              .collection('user_backups')
+              .doc(backup.id)
+              .collection('chunks')
+              .doc(chunkDoc.id)
+              .set(chunkDoc.data());
+        }
+      }
+
+      print('Successfully migrated backups to current device');
+    } catch (e) {
+      print('Error migrating backups: $e');
     }
   }
 
@@ -326,9 +547,11 @@ class CloudBackupService {
       
       // Download from Firestore chunks
       try {
+        // Use deviceId for consistent access across reinstalls
+        final deviceId = await _getOrCreateDeviceId();
         final chunksQuery = await _firestore
             .collection('backups')
-            .doc(backup.userId)
+            .doc(deviceId)
             .collection('user_backups')
             .doc(backup.id)
             .collection('chunks')
@@ -503,9 +726,10 @@ class CloudBackupService {
       }
 
       // Delete chunks from Firestore subcollection
+      final deviceId = await _getOrCreateDeviceId();
       final chunksQuery = await _firestore
           .collection('backups')
-          .doc(backup.userId)
+          .doc(deviceId)
           .collection('user_backups')
           .doc(backup.id)
           .collection('chunks')
@@ -519,7 +743,7 @@ class CloudBackupService {
       // Delete metadata from Firestore
       await _firestore
           .collection('backups')
-          .doc(backup.userId)
+          .doc(deviceId)
           .collection('user_backups')
           .doc(backup.id)
           .delete();
