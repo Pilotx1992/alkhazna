@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "659394085984",
+    "project_id": "alkhazna-07",
+    "storage_bucket": "alkhazna-07.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:659394085984:android:da8ae5936b1fff60e62f05",
+        "android_client_info": {
+          "package_name": "com.example.alkhazna"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD6EFZOWDCM1NbF3jJK9h-a9-54dXGtenY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

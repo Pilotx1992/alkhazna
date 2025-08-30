@@ -148,14 +148,14 @@ class _CleanIncomeExampleState extends State<CleanIncomeExample> {
                       incomeList[index].amount = newAmount;
                     });
                     // Here you would typically save to your storage/database
-                    print('Amount changed for row ${index + 1}: $newAmount');
+                    
                   },
                   onNameChanged: (newName) {
                     setState(() {
                       incomeList[index].name = newName;
                     });
                     // Here you would typically save to your storage/database
-                    print('Name changed for row ${index + 1}: $newName');
+                    
                   },
                 );
               },

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'screens/home_screen.dart';
+import 'screens/login_screen.dart';
 import 'models/income_entry.dart';
 import 'models/outcome_entry.dart';
 import 'models/entry_list_adapters.dart';
@@ -130,6 +132,13 @@ class AppTheme {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Initialize Firebase
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    debugPrint('Firebase initialization failed: $e');
+  }
+
   // Initialize Hive
   await Hive.initFlutter();
 
@@ -158,7 +167,7 @@ class AlKhaznaApp extends StatelessWidget {
     return MaterialApp(
       title: 'Al Khazna',
       theme: AppTheme.lightTheme,
-      home: const HomeScreen(),
+  home: LoginScreen(),
       locale: const Locale('en', ''),
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,

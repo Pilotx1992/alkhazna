@@ -107,14 +107,14 @@ class _IncomeRowExampleState extends State<IncomeRowExample> {
                       item.amount = newAmount;
                     });
                     // Save to storage here if needed
-                    print('Amount changed for ${item.name}: $newAmount');
+                    
                   },
                   onNameChanged: (newName) {
                     setState(() {
                       item.name = newName;
                     });
                     // Save to storage here if needed
-                    print('Name changed to: $newName');
+                    
                   },
                 );
               },

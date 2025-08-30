@@ -311,7 +311,7 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
                       child: ElevatedButton(
                         onPressed: _addNewEntry,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFE53E3E),
+                                                backgroundColor: const Color(0xFFE53E3E),
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -490,7 +490,7 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
-                      color: const Color(0xFFE53E3E),
+                      color: Color(0xFFE53E3E),
                     ),
                   ),
                 ),

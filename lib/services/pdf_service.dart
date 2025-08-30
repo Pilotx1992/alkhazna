@@ -22,7 +22,7 @@ class PdfService {
         incomeEntries.where((e) => e.name.isNotEmpty || e.amount > 0).toList();
     final filteredOutcome =
         outcomeEntries.where((e) => e.name.isNotEmpty || e.amount > 0).toList();
-    print("DEBUG: filteredOutcome count: \\${filteredOutcome.length}");
+    
     final totalIncome = filteredIncome.fold<double>(0, (s, e) => s + e.amount);
     final totalOutcome =
         filteredOutcome.fold<double>(0, (s, e) => s + e.amount);
@@ -190,11 +190,10 @@ class PdfService {
     }
 
     // Debug: Print the total number of entries
-    print('PDF DEBUG: Total entries for table: \\${entries.length}');
+    
     for (int pageIndex = 0; pageIndex < pages.length; pageIndex++) {
       final chunk = pages[pageIndex];
-      print(
-          'PDF DEBUG: Page \\${pageIndex + 1} chunk length: \\${chunk.length}');
+      
       final isLastPage = pageIndex == pages.length - 1;
 
       final dataRows = <pw.TableRow>[];

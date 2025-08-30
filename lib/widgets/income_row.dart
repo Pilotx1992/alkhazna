@@ -71,7 +71,7 @@ class _IncomeRowState extends State<IncomeRow> {
   Widget build(BuildContext context) {
     final Color rowBackgroundColor =
         widget.index % 2 == 1
-            ? Color.fromARGB(255, 225, 236, 247)
+            ? const Color.fromARGB(255, 225, 236, 247)
             : const Color(0xFFBBDEFB); // even rows
     return Container(
       margin: const EdgeInsets.only(bottom: 8),

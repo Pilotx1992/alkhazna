@@ -186,7 +186,7 @@ class _BalanceScreenState extends State<BalanceScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha((255 * 0.05).round()),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -258,7 +258,7 @@ class _BalanceScreenState extends State<BalanceScreen>
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withAlpha((255 * 0.1).round()),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
@@ -305,7 +305,7 @@ class _BalanceScreenState extends State<BalanceScreen>
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: color.withOpacity(0.1),
+                        color: color.withAlpha((255 * 0.1).round()),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -336,7 +336,7 @@ class _BalanceScreenState extends State<BalanceScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withOpacity(0.3),
+            color: Colors.blue.withAlpha((255 * 0.3).round()),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),

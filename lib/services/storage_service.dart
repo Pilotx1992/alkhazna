@@ -6,6 +6,10 @@ class StorageService {
   static const String incomeBoxName = 'income_entries';
   static const String outcomeBoxName = 'outcome_entries';
 
+  static Future<void> closeHive() async {
+    await Hive.close();
+  }
+
   Future<List<IncomeEntry>> getIncomeEntries(String month, int year) async {
     final box = await Hive.openBox<List<dynamic>>(incomeBoxName);
     final key = '${month}_$year';
