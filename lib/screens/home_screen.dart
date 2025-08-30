@@ -1,3 +1,5 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'login_screen.dart';
 
 import "package:flutter/material.dart";
 import "package:shared_preferences/shared_preferences.dart";
@@ -407,8 +409,21 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           backgroundColor: colorScheme.surface,
           elevation: 0,
-          actions: const [
-            SizedBox(width: 8),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.logout),
+              tooltip: 'Sign Out',
+              onPressed: () async {
+                await FirebaseAuth.instance.signOut();
+                if (context.mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (context) => LoginScreen()),
+                    (route) => false,
+                  );
+                }
+              },
+            ),
+            const SizedBox(width: 8),
           ],
         ),
         body: bodyContent,
