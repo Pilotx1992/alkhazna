@@ -23,6 +23,8 @@ class _CloudBackupScreenState extends State<CloudBackupScreen> {
   }
 
   void _loadCloudBackups() async {
+    if (!mounted) return;
+    
     setState(() {
       _isLoading = true;
       _currentOperation = 'Loading cloud backups...';
@@ -30,36 +32,53 @@ class _CloudBackupScreenState extends State<CloudBackupScreen> {
 
     try {
       final backups = await _cloudBackupService.getCloudBackups(context);
-      setState(() {
-        _cloudBackups = backups;
-        _isLoading = false;
-        _currentOperation = '';
-      });
+      if (mounted) {
+        setState(() {
+          _cloudBackups = backups;
+          _isLoading = false;
+          _currentOperation = '';
+        });
+      }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _currentOperation = '';
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _currentOperation = '';
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load backups: $e')),
+        );
+      }
     }
   }
 
   void _createCloudBackup() async {
+    if (!mounted) return;
+    
     setState(() {
       _isLoading = true;
       _currentOperation = 'Starting cloud backup...';
     });
 
-    // ignore: use_build_context_synchronously
-    await _cloudBackupService.createCloudBackup(
-      context,
-      onProgress: (status) {
-        if (mounted) {
-          setState(() {
-            _currentOperation = status;
-          });
-        }
-      },
-    );
+    try {
+      // ignore: use_build_context_synchronously
+      await _cloudBackupService.createCloudBackup(
+        context,
+        onProgress: (status) {
+          if (mounted) {
+            setState(() {
+              _currentOperation = status;
+            });
+          }
+        },
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Backup failed: $e')),
+        );
+      }
+    }
 
     if (mounted) {
       setState(() {
@@ -116,17 +135,25 @@ class _CloudBackupScreenState extends State<CloudBackupScreen> {
         _currentOperation = 'Starting cloud restore...';
       });
 
-      await _cloudBackupService.restoreFromCloud(
-        context, // ignore: use_build_context_synchronously
-        backup,
-        onProgress: (status) {
-          if (mounted) {
-            setState(() {
-              _currentOperation = status;
-            });
-          }
-        },
-      );
+      try {
+        await _cloudBackupService.restoreFromCloud(
+          context, // ignore: use_build_context_synchronously
+          backup,
+          onProgress: (status) {
+            if (mounted) {
+              setState(() {
+                _currentOperation = status;
+              });
+            }
+          },
+        );
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Restore failed: $e')),
+          );
+        }
+      }
 
       if (mounted) {
         setState(() {
@@ -163,10 +190,18 @@ class _CloudBackupScreenState extends State<CloudBackupScreen> {
         _currentOperation = 'Deleting cloud backup...';
       });
 
-      // ignore: use_build_context_synchronously
-      final success = await _cloudBackupService.deleteCloudBackup(context, backup);
-      if (success) {
-        _loadCloudBackups(); // Refresh the list
+      try {
+        // ignore: use_build_context_synchronously
+        final success = await _cloudBackupService.deleteCloudBackup(context, backup);
+        if (success && mounted) {
+          _loadCloudBackups(); // Refresh the list
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Delete failed: $e')),
+          );
+        }
       }
 
       if (mounted) {
@@ -308,10 +343,13 @@ class _CloudBackupScreenState extends State<CloudBackupScreen> {
                                       itemCount: _cloudBackups.length,
                                       itemBuilder: (context, index) {
                                         final backup = _cloudBackups[index];
+                                        final isLargeBackup = backup.size > 15 * 1024 * 1024; // 15MB+
+                                        final isTooLarge = backup.size > 30 * 1024 * 1024; // 30MB+
+                                        
                                         return ListTile(
-                                          leading: const Icon(
-                                            Icons.cloud,
-                                            color: Colors.blue,
+                                          leading: Icon(
+                                            isTooLarge ? Icons.warning : Icons.cloud,
+                                            color: isTooLarge ? Colors.red : Colors.blue,
                                             size: 32,
                                           ),
                                           title: Text(
@@ -326,14 +364,37 @@ class _CloudBackupScreenState extends State<CloudBackupScreen> {
                                               ),
                                               Text(
                                                 'Size: ${_cloudBackupService.formatFileSize(backup.size)} • ${backup.deviceInfo}',
+                                                style: TextStyle(
+                                                  color: isTooLarge ? Colors.red : (isLargeBackup ? Colors.orange : null),
+                                                  fontWeight: isTooLarge ? FontWeight.bold : null,
+                                                ),
                                               ),
+                                              if (isTooLarge)
+                                                const Text(
+                                                  'Too large for this device',
+                                                  style: TextStyle(
+                                                    color: Colors.red,
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                )
+                                              else if (isLargeBackup)
+                                                const Text(
+                                                  'Large backup - may use more memory',
+                                                  style: TextStyle(
+                                                    color: Colors.orange,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
                                             ],
                                           ),
                                           trailing: PopupMenuButton<String>(
                                             onSelected: (action) {
                                               switch (action) {
                                                 case 'restore':
-                                                  _restoreCloudBackup(backup);
+                                                  if (!isTooLarge) {
+                                                    _restoreCloudBackup(backup);
+                                                  }
                                                   break;
                                                 case 'delete':
                                                   _deleteCloudBackup(backup);
@@ -341,13 +402,22 @@ class _CloudBackupScreenState extends State<CloudBackupScreen> {
                                               }
                                             },
                                             itemBuilder: (context) => [
-                                              const PopupMenuItem(
+                                              PopupMenuItem(
                                                 value: 'restore',
+                                                enabled: !isTooLarge,
                                                 child: Row(
                                                   children: [
-                                                    Icon(Icons.restore, color: Colors.blue),
-                                                    SizedBox(width: 8),
-                                                    Text('Restore'),
+                                                    Icon(
+                                                      Icons.restore, 
+                                                      color: isTooLarge ? Colors.grey : Colors.blue,
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    Text(
+                                                      'Restore',
+                                                      style: TextStyle(
+                                                        color: isTooLarge ? Colors.grey : null,
+                                                      ),
+                                                    ),
                                                   ],
                                                 ),
                                               ),
@@ -363,7 +433,7 @@ class _CloudBackupScreenState extends State<CloudBackupScreen> {
                                               ),
                                             ],
                                           ),
-                                          onTap: () => _restoreCloudBackup(backup),
+                                          onTap: () => isTooLarge ? null : _restoreCloudBackup(backup),
                                         );
                                       },
                                     ),

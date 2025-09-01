@@ -396,16 +396,18 @@ class CloudBackupService {
 
       final deviceId = await _getOrCreateDeviceId();
       
-      // First try to get backups from current device ID
+      // First try to get backups from current device ID with size limit
       var querySnapshot = await _firestore
           .collection('backups')
           .doc(deviceId)
           .collection('user_backups')
           .orderBy('createdAt', descending: true)
+          .limit(20) // Limit to most recent 20 backups to avoid memory issues
           .get();
 
       List<CloudBackupMetadata> backups = querySnapshot.docs
           .map((doc) => CloudBackupMetadata.fromMap(doc.data()))
+          .where((backup) => backup.size < 30 * 1024 * 1024) // Filter out backups larger than 30MB
           .toList();
 
       // If no backups found, try to search for backups from previous installations
@@ -429,17 +431,10 @@ class CloudBackupService {
   Future<List<CloudBackupMetadata>> _searchForBackupsFromOldDeviceIds(BuildContext context) async {
     try {
       // Search for backups that might belong to this device but under different IDs
-      // We'll look for common patterns that might match this device
-      
-      final possibleDeviceIds = [
-        'device_fallback_${Platform.operatingSystem.hashCode.abs()}',
-        'device_fp_${('${Platform.operatingSystem}_${Platform.localeName}_android_emulator').hashCode.abs()}',
-      ];
-
-      // Also try some Firebase auth UIDs from recent sessions
-      if (_auth.currentUser != null) {
-        possibleDeviceIds.add(_auth.currentUser!.uid);
-      }
+      final possibleDeviceIds = await _getPossibleDeviceIds();
+      // Remove current device ID since it's already been searched
+      final currentDeviceId = await _getOrCreateDeviceId();
+      possibleDeviceIds.remove(currentDeviceId);
 
       List<CloudBackupMetadata> foundBackups = [];
 
@@ -462,7 +457,8 @@ class CloudBackupService {
             
             // If we found backups, migrate them to current device ID
             await _migrateBackupsToCurrentDevice(deviceId, backups);
-            break; // Stop searching once we find backups
+            debugPrint('Found and migrated ${backups.length} backups from device ID: $deviceId');
+            // Don't break - continue searching for more backups in other locations
           }
         } catch (e) {
           // Continue searching even if one device ID fails
@@ -470,7 +466,13 @@ class CloudBackupService {
         }
       }
 
-      return foundBackups;
+      // Remove duplicates based on backup ID
+      final uniqueBackups = <String, CloudBackupMetadata>{};
+      for (final backup in foundBackups) {
+        uniqueBackups[backup.id] = backup;
+      }
+
+      return uniqueBackups.values.toList();
     } catch (e) {
       debugPrint('Error searching for old backups: $e');
       return [];
@@ -525,6 +527,20 @@ class CloudBackupService {
 
   Future<bool> restoreFromCloud(BuildContext context, CloudBackupMetadata backup, {Function(String)? onProgress}) async {
     try {
+      debugPrint('Starting cloud backup restore for: ${backup.id}');
+      
+      // Check if backup size is reasonable for device memory (lowered limit)
+      if (backup.size > 30 * 1024 * 1024) { // 30MB limit for better stability
+        if (!context.mounted) return false;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Backup is too large (${formatFileSize(backup.size)}). This device can only restore backups up to 30MB.'),
+            duration: const Duration(seconds: 5),
+          ),
+        );
+        return false;
+      }
+      
       // Ensure user is authenticated
       if (_auth.currentUser == null) {
         onProgress?.call('Authenticating...');
@@ -537,26 +553,22 @@ class CloudBackupService {
       // ignore: use_build_context_synchronously
       final password = await _getPasswordFromUser(context, 'Restore Cloud Backup');
       if (!context.mounted) return false;
-      if (password == null || password.isEmpty) return false;
+      if (password == null || password.isEmpty) {
+        debugPrint('User cancelled password input');
+        return false;
+      }
 
       onProgress?.call('Downloading from cloud...');
       
       late List<int> fileBytes;
       
-      // Download from Firestore chunks
+      // Download from Firestore chunks with fallback device IDs
       try {
-        // Use deviceId for consistent access across reinstalls
-        final deviceId = await _getOrCreateDeviceId();
-        final chunksQuery = await _firestore
-            .collection('backups')
-            .doc(deviceId)
-            .collection('user_backups')
-            .doc(backup.id)
-            .collection('chunks')
-            .orderBy('index')
-            .get();
+        debugPrint('Attempting to download backup chunks');
+        fileBytes = await _downloadBackupChunks(backup, onProgress);
         
-        if (chunksQuery.docs.isEmpty) {
+        if (fileBytes.isEmpty) {
+          debugPrint('No backup data found in any location');
           if (!context.mounted) return false;
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Backup data not found in cloud')),
@@ -564,20 +576,25 @@ class CloudBackupService {
           return false;
         }
         
-        // Reassemble chunks
-        final buffer = StringBuffer();
-        for (final doc in chunksQuery.docs) {
-          buffer.write(doc.data()['data'] ?? '');
-        }
-        
-        final base64String = buffer.toString();
-        fileBytes = base64Decode(base64String);
+        debugPrint('Successfully downloaded ${fileBytes.length} bytes');
         
       } catch (e) {
+        debugPrint('Error downloading backup chunks: $e');
         if (!context.mounted) return false;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to download backup: $e')),
-        );
+        
+        // Handle specific OutOfMemory errors
+        if (e.toString().contains('OutOfMemory') || e.toString().contains('allocation')) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Not enough memory to restore this backup. Try restarting the app or use a device with more RAM.'),
+              duration: Duration(seconds: 5),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to download backup: $e')),
+          );
+        }
         return false;
       }
 
@@ -716,33 +733,117 @@ class CloudBackupService {
 
   Future<bool> deleteCloudBackup(BuildContext context, CloudBackupMetadata backup) async {
     try {
+      debugPrint('Starting cloud backup deletion for: ${backup.id}');
+      
       // Ensure user is authenticated
       if (_auth.currentUser == null) {
         if (!await signInAnonymously(context)) return false;
       }
 
-      // Delete chunks from Firestore subcollection
-      final deviceId = await _getOrCreateDeviceId();
-      final chunksQuery = await _firestore
-          .collection('backups')
-          .doc(deviceId)
-          .collection('user_backups')
-          .doc(backup.id)
-          .collection('chunks')
-          .get();
+      // Try to delete from multiple possible device IDs
+      bool deleted = false;
+      final possibleDeviceIds = await _getPossibleDeviceIds();
+      debugPrint('Searching for backup in ${possibleDeviceIds.length} possible locations');
+      
+      if (possibleDeviceIds.isEmpty) {
+        debugPrint('No device IDs to search for deletion');
+        if (!context.mounted) return false;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to locate backup for deletion')),
+        );
+        return false;
+      }
+      
+      for (final deviceId in possibleDeviceIds) {
+        try {
+          // Check if backup exists in this location
+          final backupDoc = await _firestore
+              .collection('backups')
+              .doc(deviceId)
+              .collection('user_backups')
+              .doc(backup.id)
+              .get();
+          
+          if (backupDoc.exists) {
+            // Get chunk count from metadata first
+            final backupData = backupDoc.data() as Map<String, dynamic>?;
+            final chunkCount = backupData?['chunkCount'] ?? 0;
+            
+            if (chunkCount > 0) {
+              debugPrint('Deleting $chunkCount chunks in batches...');
+              
+              // Safety check for extremely large backups
+              if (chunkCount > 2000) { // More than 2000 chunks (~1GB backup)
+                debugPrint('Backup too large to delete safely: $chunkCount chunks');
+                if (!context.mounted) return false;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Backup is too large ($chunkCount chunks) to delete safely on this device.'),
+                    duration: const Duration(seconds: 5),
+                  ),
+                );
+                return false;
+              }
+              
+              // Delete chunks in small batches to avoid memory issues
+              const batchSize = 10; // Delete 10 chunks at a time
+              for (int batchStart = 0; batchStart < chunkCount; batchStart += batchSize) {
+                final batchEnd = (batchStart + batchSize < chunkCount) ? batchStart + batchSize : chunkCount;
+                
+                try {
+                  // Get a small batch of chunk references
+                  final batchQuery = await _firestore
+                      .collection('backups')
+                      .doc(deviceId)
+                      .collection('user_backups')
+                      .doc(backup.id)
+                      .collection('chunks')
+                      .where('index', isGreaterThanOrEqualTo: batchStart)
+                      .where('index', isLessThanOrEqualTo: batchEnd - 1)
+                      .limit(batchSize)
+                      .get();
 
-      // Delete chunks individually to avoid batch size limits
-      for (final doc in chunksQuery.docs) {
-        await doc.reference.delete();
+                  // Delete chunks in this batch
+                  for (final doc in batchQuery.docs) {
+                    await doc.reference.delete();
+                  }
+                  
+                  debugPrint('Deleted chunk batch $batchStart-${batchEnd-1}');
+                  
+                  // Small delay to prevent rate limiting and allow garbage collection
+                  await Future.delayed(const Duration(milliseconds: 100));
+                  
+                } catch (e) {
+                  debugPrint('Error deleting chunk batch $batchStart-${batchEnd-1}: $e');
+                  // Continue with next batch even if one fails
+                }
+              }
+            }
+
+            // Delete metadata from Firestore
+            await _firestore
+                .collection('backups')
+                .doc(deviceId)
+                .collection('user_backups')
+                .doc(backup.id)
+                .delete();
+            
+            deleted = true;
+            break; // Stop after first successful deletion
+          }
+        } catch (e) {
+          debugPrint('Failed to delete from device ID $deviceId: $e');
+          continue; // Try next device ID
+        }
       }
 
-      // Delete metadata from Firestore
-      await _firestore
-          .collection('backups')
-          .doc(deviceId)
-          .collection('user_backups')
-          .doc(backup.id)
-          .delete();
+      if (!deleted) {
+        if (!context.mounted) return false;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Backup not found or already deleted')),
+        );
+        return false;
+      }
 
       if (!context.mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -756,6 +857,168 @@ class CloudBackupService {
       );
       return false;
     }
+  }
+
+  Future<List<int>> _downloadBackupChunks(CloudBackupMetadata backup, Function(String)? onProgress) async {
+    try {
+      final possibleDeviceIds = await _getPossibleDeviceIds();
+      debugPrint('_downloadBackupChunks: Searching ${possibleDeviceIds.length} device IDs');
+      
+      if (possibleDeviceIds.isEmpty) {
+        debugPrint('No device IDs to search');
+        return [];
+      }
+      
+      for (final deviceId in possibleDeviceIds) {
+        try {
+          final displayId = deviceId.length > 12 ? deviceId.substring(0, 12) : deviceId;
+          onProgress?.call('Searching backup in device: $displayId...');
+          debugPrint('Trying device ID: $deviceId');
+          
+          // First, get total chunk count with a minimal query
+          DocumentSnapshot? metadataDoc;
+          try {
+            metadataDoc = await _firestore
+                .collection('backups')
+                .doc(deviceId)
+                .collection('user_backups')
+                .doc(backup.id)
+                .get();
+          } catch (e) {
+            debugPrint('Failed to get backup metadata: $e');
+            continue; // Try next device ID
+          }
+          
+          if (!metadataDoc.exists) {
+            debugPrint('Backup metadata not found for device: $deviceId');
+            continue; // Try next device ID
+          }
+          
+          final metadataData = metadataDoc.data() as Map<String, dynamic>?;
+          final chunkCount = metadataData?['chunkCount'] ?? 0;
+          
+          if (chunkCount == 0) {
+            debugPrint('No chunks found in metadata for device: $deviceId');
+            continue; // Try next device ID
+          }
+          
+          onProgress?.call('Found backup! Loading $chunkCount chunks...');
+          
+          // Download chunks in small batches to avoid memory issues
+          return await _downloadChunksInBatches(deviceId, backup.id, chunkCount, onProgress);
+          
+        } catch (e) {
+          debugPrint('Failed to download from device ID $deviceId: $e');
+          if (e.toString().contains('permission-denied')) {
+            onProgress?.call('Permission denied. Trying next location...');
+          } else if (e.toString().contains('network')) {
+            onProgress?.call('Network error. Trying next location...');
+          }
+          continue; // Try next device ID
+        }
+      }
+      
+      return []; // Empty list if not found anywhere
+      
+    } catch (e) {
+      debugPrint('Critical error in _downloadBackupChunks: $e');
+      return []; // Return empty list to prevent crash
+    }
+  }
+
+
+  Future<List<int>> _downloadChunksInBatches(String deviceId, String backupId, int chunkCount, Function(String)? onProgress) async {
+    try {
+      const batchSize = 5; // Download 5 chunks at a time to avoid memory issues
+      final List<String> allChunkData = [];
+      
+      for (int batchStart = 0; batchStart < chunkCount; batchStart += batchSize) {
+        final batchEnd = (batchStart + batchSize < chunkCount) ? batchStart + batchSize : chunkCount;
+        
+        onProgress?.call('Downloading chunks ${batchStart + 1}-$batchEnd of $chunkCount...');
+        
+        try {
+          // Download this batch of chunks
+          final batch = await _downloadChunkBatch(deviceId, backupId, batchStart, batchEnd - 1);
+          allChunkData.addAll(batch);
+          
+          // Update progress
+          final progress = ((batchEnd) / chunkCount * 80).round();
+          onProgress?.call('Downloaded: $progress%');
+          
+          // Small delay to allow garbage collection
+          await Future.delayed(const Duration(milliseconds: 200));
+          
+        } catch (e) {
+          debugPrint('Failed to download batch $batchStart-${batchEnd-1}: $e');
+          throw Exception('Failed to download backup chunks: $e');
+        }
+      }
+      
+      onProgress?.call('Assembling backup data...');
+      
+      // Join all chunk data and decode
+      final completeBase64 = allChunkData.join('');
+      allChunkData.clear(); // Free memory immediately
+      
+      try {
+        final result = base64Decode(completeBase64);
+        onProgress?.call('Backup download complete!');
+        return result;
+      } catch (e) {
+        debugPrint('Error decoding complete backup data: $e');
+        throw Exception('Failed to decode backup data: corrupt backup file');
+      }
+      
+    } catch (e) {
+      debugPrint('Error in _downloadChunksInBatches: $e');
+      throw Exception('Failed to download backup in batches: $e');
+    }
+  }
+
+  Future<List<String>> _downloadChunkBatch(String deviceId, String backupId, int startIndex, int endIndex) async {
+    try {
+      final batchQuery = await _firestore
+          .collection('backups')
+          .doc(deviceId)
+          .collection('user_backups')
+          .doc(backupId)
+          .collection('chunks')
+          .where('index', isGreaterThanOrEqualTo: startIndex)
+          .where('index', isLessThanOrEqualTo: endIndex)
+          .orderBy('index')
+          .get();
+      
+      final batchData = <String>[];
+      for (final doc in batchQuery.docs) {
+        final data = doc.data() as Map<String, dynamic>?;
+        batchData.add(data?['data'] ?? '');
+      }
+      
+      return batchData;
+      
+    } catch (e) {
+      debugPrint('Error downloading chunk batch $startIndex-$endIndex: $e');
+      throw Exception('Failed to download chunk batch: $e');
+    }
+  }
+
+  Future<List<String>> _getPossibleDeviceIds() async {
+    final currentDeviceId = await _getOrCreateDeviceId();
+    final possibleDeviceIds = <String>[currentDeviceId];
+    
+    // Add alternative device ID patterns
+    possibleDeviceIds.add('device_fallback_${Platform.operatingSystem.hashCode.abs()}');
+    possibleDeviceIds.add('device_fp_${('${Platform.operatingSystem}_${Platform.localeName}_android_emulator').hashCode.abs()}');
+    
+    // Also try Firebase auth UIDs from recent sessions
+    if (_auth.currentUser != null) {
+      possibleDeviceIds.add(_auth.currentUser!.uid);
+    }
+    
+    // Remove duplicates while maintaining order
+    final seen = <String>{};
+    return possibleDeviceIds.where((id) => seen.add(id)).toList();
   }
 
   String formatFileSize(int bytes) {
