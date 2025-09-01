@@ -33,9 +33,9 @@ class BackupStatusWidget extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: service.statusColor.withOpacity(0.1),
+          color: service.statusColor.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: service.statusColor.withOpacity(0.3)),
+          border: Border.all(color: service.statusColor.withValues(alpha: 0.3)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -85,7 +85,7 @@ class BackupStatusWidget extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: service.statusColor.withOpacity(0.1),
+                    color: service.statusColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
@@ -140,7 +140,7 @@ class BackupStatusWidget extends StatelessWidget {
               const SizedBox(height: 16),
               LinearProgressIndicator(
                 value: service.syncProgress > 0 ? service.syncProgress : null,
-                backgroundColor: service.statusColor.withOpacity(0.2),
+                backgroundColor: service.statusColor.withValues(alpha: 0.2),
                 valueColor: AlwaysStoppedAnimation<Color>(service.statusColor),
               ),
               const SizedBox(height: 8),
@@ -178,9 +178,9 @@ class BackupStatusWidget extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.1),
+                color: Colors.green.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.green.withOpacity(0.3)),
+                border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
               ),
               child: Text(
                 'Enabled',
@@ -325,7 +325,7 @@ class _BackupSettingsDialogState extends State<BackupSettingsDialog> {
             const Text('Backup Frequency:'),
             const SizedBox(height: 8),
             DropdownButtonFormField<int>(
-              value: _intervalHours,
+              initialValue: _intervalHours,
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
                 contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),

@@ -290,7 +290,7 @@ class EnhancedBackupService extends ChangeNotifier {
       }
       
       _updateStatus(BackupStatus.error, errorMessage);
-      print('Manual backup error: $e'); // For debugging
+      debugPrint('Manual backup error: $e');
       return false;
     } finally {
       _syncProgress = 0.0;

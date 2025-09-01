@@ -137,7 +137,7 @@ class _BackupScreenState extends State<BackupScreen> {
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.08),
+                                  color: Colors.black.withValues(alpha: 0.08),
                                   blurRadius: 24,
                                   offset: Offset(0, 8),
                                 ),

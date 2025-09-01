@@ -1,10 +1,8 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:convert';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
@@ -64,7 +62,6 @@ class CloudBackupMetadata {
 
 class CloudBackupService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   
   static const String _deviceIdKey = 'device_backup_id';
@@ -176,10 +173,10 @@ class CloudBackupService {
           }
         }
         
-        print('Migrated ${oldBackupsQuery.docs.length} backups to device-based storage');
+        debugPrint('Migrated ${oldBackupsQuery.docs.length} backups to device-based storage');
       }
     } catch (e) {
-      print('Backup migration error: $e');
+      debugPrint('Backup migration error: $e');
       // Migration failure shouldn't break the app
     }
   }
@@ -244,7 +241,6 @@ class CloudBackupService {
         if (!await signInAnonymously(context)) return false;
       }
 
-      final user = _auth.currentUser!;
       final deviceId = await _getOrCreateDeviceId();
       onProgress?.call('Getting encryption password...');
       
@@ -280,7 +276,7 @@ class CloudBackupService {
       final iv = encrypt.IV.fromSecureRandom(16);
 
       final encrypter = encrypt.Encrypter(encrypt.AES(key));
-      final encrypted = encrypter.encryptBytes(outputZip!, iv: iv);
+      final encrypted = encrypter.encryptBytes(outputZip, iv: iv);
       final encryptedData = salt + iv.bytes + encrypted.bytes;
 
       onProgress?.call('Uploading to cloud...');
@@ -306,7 +302,7 @@ class CloudBackupService {
           chunks.add(base64Data.substring(i, end));
         }
         
-        onProgress?.call('Uploading backup to cloud... 75%');
+        onProgress?.call('Uploading backup ... 75%');
         
         // Store chunks individually with delays to avoid rate limiting
         for (int i = 0; i < chunks.length; i++) {
@@ -325,8 +321,8 @@ class CloudBackupService {
           });
           
           // Update progress for each chunk
-          final progress = 75 + ((i + 1) / chunks.length * 20).round();
-          onProgress?.call('Uploading backup to cloud... $progress%');
+          final progress = 1 + ((i + 1) / chunks.length * 20).round();
+          onProgress?.call('Uploading backup $progress%');
           
           // Add small delay to prevent Firestore rate limiting
           if (i < chunks.length - 1) {
@@ -337,7 +333,7 @@ class CloudBackupService {
         onProgress?.call('Cloud backup completed successfully!');
         
       } catch (e) {
-        print('Firestore backup error: $e');
+        debugPrint('Firestore backup error: $e');
         if (e.toString().contains('permission-denied')) {
           throw Exception('Permission denied. Please check Firestore security rules.');
         } else if (e.toString().contains('quota-exceeded')) {
@@ -414,7 +410,9 @@ class CloudBackupService {
 
       // If no backups found, try to search for backups from previous installations
       if (backups.isEmpty) {
-        backups = await _searchForBackupsFromOldDeviceIds(context);
+        if (context.mounted) {
+          backups = await _searchForBackupsFromOldDeviceIds(context);
+        }
       }
 
       return backups;
@@ -468,13 +466,13 @@ class CloudBackupService {
           }
         } catch (e) {
           // Continue searching even if one device ID fails
-          print('Failed to search device ID $deviceId: $e');
+          debugPrint('Failed to search device ID $deviceId: $e');
         }
       }
 
       return foundBackups;
     } catch (e) {
-      print('Error searching for old backups: $e');
+      debugPrint('Error searching for old backups: $e');
       return [];
     }
   }
@@ -484,7 +482,7 @@ class CloudBackupService {
       final currentDeviceId = await _getOrCreateDeviceId();
       if (oldDeviceId == currentDeviceId) return; // No migration needed
 
-      print('Migrating ${backups.length} backups from $oldDeviceId to $currentDeviceId');
+      debugPrint('Migrating ${backups.length} backups from $oldDeviceId to $currentDeviceId');
 
       for (final backup in backups) {
         // Copy backup metadata
@@ -519,9 +517,9 @@ class CloudBackupService {
         }
       }
 
-      print('Successfully migrated backups to current device');
+      debugPrint('Successfully migrated backups to current device');
     } catch (e) {
-      print('Error migrating backups: $e');
+      debugPrint('Error migrating backups: $e');
     }
   }
 
@@ -648,9 +646,7 @@ class CloudBackupService {
         }
         final zipEncoder = ZipEncoder();
         final encodedArchive = zipEncoder.encode(archiveCurrent);
-        if (encodedArchive != null) {
-          File(backupOfCurrentData).writeAsBytesSync(encodedArchive);
-        }
+        File(backupOfCurrentData).writeAsBytesSync(encodedArchive);
       }
 
       onProgress?.call('Restoring data...');

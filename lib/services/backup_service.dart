@@ -57,7 +57,7 @@ class BackupService {
         final iv = encrypt.IV.fromSecureRandom(16);
 
         final encrypter = encrypt.Encrypter(encrypt.AES(key));
-        final encrypted = encrypter.encryptBytes(outputZip!, iv: iv);
+        final encrypted = encrypter.encryptBytes(outputZip, iv: iv);
 
         final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
         final fileName = 'alkhazna_backup_$timestamp.alk';
@@ -187,9 +187,7 @@ class BackupService {
             }
             final zipEncoder = ZipEncoder();
             final encodedArchive = zipEncoder.encode(archiveCurrent);
-            if (encodedArchive != null) {
-              File(backupOfCurrentData).writeAsBytesSync(encodedArchive);
-            }
+            File(backupOfCurrentData).writeAsBytesSync(encodedArchive);
           }
 
           onProgress?.call('Preparing for restore...');

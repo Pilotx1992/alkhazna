@@ -15,7 +15,9 @@
       "Bash(./gradlew:*)",
       "Bash(flutter:*)",
       "Bash(emulator:*)",
-      "Bash(C:UsersXAppDataLocalAndroidsdkemulatoremulator -list-avds)"
+      "Bash(C:UsersXAppDataLocalAndroidsdkemulatoremulator -list-avds)",
+      "mcp__ide__getDiagnostics",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
