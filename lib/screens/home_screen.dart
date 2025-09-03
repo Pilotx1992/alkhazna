@@ -5,8 +5,9 @@ import "package:flutter/material.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
 import "month_page.dart";
-import "backup_screen.dart";
+import "modern_backup_screen.dart";
 import "../services/storage_service.dart";
+import "../services/enhanced_backup_service.dart";
 import "../widgets/backup_status_widget.dart";
 
 class HomeScreen extends StatefulWidget {
@@ -49,8 +50,9 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _selectedMonth = _months[DateTime.now().month - 1];
     _selectedYear = DateTime.now().year;
-    
     _loadLastSelection();
+    // Ensure backup status is always up to date
+    EnhancedBackupService().initialize();
   }
 
   @override
@@ -63,6 +65,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _loadTotals();
+    // Optionally refresh backup status when dependencies change
+    EnhancedBackupService().initialize();
   }
 
   @override
@@ -274,44 +278,51 @@ class _HomeScreenState extends State<HomeScreen> {
             
             const SizedBox(height: 24),
             
-            // Total Balance Card
+            // Total Balance Card - Matching HomeScreen.jpg design
             _isTotalsLoading
                 ? const Center(child: CircularProgressIndicator())
                 : Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(32),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
+                      gradient: const LinearGradient(
                         colors: [
-                          colorScheme.secondary,
-                                                    colorScheme.secondary.withAlpha((255 * 0.8).round()),
+                          Color(0xFF4CAF50), // Material Green 500
+                          Color(0xFF81C784), // Material Green 300
                         ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF4CAF50).withAlpha((255 * 0.3).round()),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
                     child: Column(
                       children: [
                         Text(
                           'Total Balance',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            color: colorScheme.onSecondary,
-                            fontWeight: FontWeight.w500,
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
                         Text(
                           (_totalIncome - _totalOutcome)
-                              .abs()
                               .toStringAsFixed(0)
                               .replaceAllMapped(
                                 RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
                                 (Match m) => '${m[1]},',
                               ),
-                          style: theme.textTheme.displaySmall?.copyWith(
-                            color: colorScheme.onSecondary,
+                          style: theme.textTheme.displayMedium?.copyWith(
+                            color: Colors.white,
                             fontWeight: FontWeight.bold,
+                            fontSize: 48,
                           ),
                         ),
                       ],
@@ -328,8 +339,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   borderRadius: BorderRadius.circular(16),
                   gradient: LinearGradient(
                     colors: [
-                      colorScheme.tertiaryContainer,
-                      colorScheme.tertiaryContainer.withAlpha((255 * 0.8).round()),
+                      colorScheme.surfaceContainer,
+                      colorScheme.surfaceContainer.withAlpha((255 * 0.8).round()),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -347,15 +358,28 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Data Backup',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          color: colorScheme.onTertiaryContainer,
-                        ),
+                      Row(
+                        children: [
+                          Text(
+                            'Data Backup',
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              color: colorScheme.onTertiaryContainer,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          BackupStatusWidget(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => const ModernBackupScreen()),
+                              );
+                            },
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'Keep your financial data safe with encrypted backups',
+                        'Keep your financial data safe',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: colorScheme.onTertiaryContainer.withAlpha((255 * 0.8).round()),
                         ),
@@ -369,7 +393,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => const BackupScreen(),
+                                    builder: (context) => const ModernBackupScreen(),
                                   ),
                                 );
                               },
@@ -411,14 +435,6 @@ class _HomeScreenState extends State<HomeScreen> {
           backgroundColor: colorScheme.surface,
           elevation: 0,
           actions: [
-            BackupStatusWidget(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const BackupScreen()),
-                );
-              },
-            ),
             const SizedBox(width: 8),
             IconButton(
               icon: const Icon(Icons.logout),

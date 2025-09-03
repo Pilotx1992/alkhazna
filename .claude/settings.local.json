@@ -17,7 +17,11 @@
       "Bash(emulator:*)",
       "Bash(C:UsersXAppDataLocalAndroidsdkemulatoremulator -list-avds)",
       "mcp__ide__getDiagnostics",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(dir \"C:\\Users\\X\\Desktop\\alkhazna\\assets\\icon\")",
+      "Bash(dart analyze:*)"
     ],
     "deny": [],
     "ask": []

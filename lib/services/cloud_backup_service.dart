@@ -15,6 +15,7 @@ import 'package:archive/archive_io.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'storage_service.dart';
+import 'advanced_compression_service.dart';
 
 class CloudBackupMetadata {
   final String id;
@@ -68,7 +69,15 @@ class CloudBackupService {
 
   encrypt.Key _deriveKey(String password, Uint8List salt) {
     final derivator = PBKDF2KeyDerivator(HMac(SHA256Digest(), 64))
-      ..init(Pbkdf2Parameters(salt, 1000, 32));
+      ..init(Pbkdf2Parameters(salt, 100000, 32)); // Increased to 100,000 iterations for better security
+    return encrypt.Key(
+        derivator.process(Uint8List.fromList(password.codeUnits)));
+  }
+
+  /// Legacy key derivation for backward compatibility with old backups.
+  encrypt.Key _deriveKeyLegacy(String password, Uint8List salt) {
+    final derivator = PBKDF2KeyDerivator(HMac(SHA256Digest(), 64))
+      ..init(Pbkdf2Parameters(salt, 1000, 32)); // Original 1000 iterations
     return encrypt.Key(
         derivator.process(Uint8List.fromList(password.codeUnits)));
   }
@@ -183,13 +192,35 @@ class CloudBackupService {
 
   Future<bool> signInAnonymously(BuildContext context) async {
     try {
-      await _auth.signInAnonymously();
+      debugPrint('Attempting anonymous sign-in...');
+      final userCredential = await _auth.signInAnonymously();
+      debugPrint('Anonymous sign-in successful. User ID: ${userCredential.user?.uid}');
+      
       if (!context.mounted) return false;
+      
+      // Store the user ID as a potential device ID for future reference
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final storedIds = prefs.getStringList('previous_device_ids') ?? [];
+        final newId = userCredential.user!.uid;
+        if (!storedIds.contains(newId)) {
+          storedIds.add(newId);
+          await prefs.setStringList('previous_device_ids', storedIds.take(10).toList());
+          debugPrint('Stored new Firebase UID as potential device ID: $newId');
+        }
+      } catch (e) {
+        debugPrint('Failed to store Firebase UID: $e');
+      }
+      
       return true;
     } catch (e) {
+      debugPrint('Anonymous sign-in failed: $e');
       if (!context.mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Authentication failed: $e')),
+        SnackBar(
+          content: Text('Authentication failed: $e'),
+          duration: const Duration(seconds: 5),
+        ),
       );
       return false;
     }
@@ -197,27 +228,49 @@ class CloudBackupService {
 
   Future<String?> _getPasswordFromUser(BuildContext context, String title) async {
     final passwordController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    
     return await showDialog<String>(
       context: context,
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: Text(title),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Your data will be encrypted with this password before uploading to the cloud.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Encryption Password',
-                helperText: 'Keep this password safe - you\'ll need it to restore',
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Your data will be encrypted with this password before uploading to the cloud.',
+                style: Theme.of(context).textTheme.bodySmall,
               ),
-            ),
-          ],
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: passwordController,
+                obscureText: true,
+                autofocus: true,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Password is required';
+                  }
+                  if (value.length < 4) {
+                    return 'Password must be at least 4 characters';
+                  }
+                  return null;
+                },
+                decoration: const InputDecoration(
+                  labelText: 'Encryption Password',
+                  helperText: 'Keep this password safe - you\'ll need it to restore',
+                  border: OutlineInputBorder(),
+                ),
+                onFieldSubmitted: (value) {
+                  if (formKey.currentState?.validate() == true) {
+                    Navigator.of(context).pop(passwordController.text.trim());
+                  }
+                },
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -225,7 +278,11 @@ class CloudBackupService {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(passwordController.text),
+            onPressed: () {
+              if (formKey.currentState?.validate() == true) {
+                Navigator.of(context).pop(passwordController.text.trim());
+              }
+            },
             child: const Text('OK'),
           ),
         ],
@@ -267,114 +324,36 @@ class CloudBackupService {
         onProgress?.call('Processing files... ${i + 1}/${allFiles.length}');
       }
 
-      onProgress?.call('Compressing data...');
-      final outputZip = ZipEncoder().encode(archive);
-
-      onProgress?.call('Encrypting backup...');
-      final salt = encrypt.IV.fromSecureRandom(8).bytes;
-      final key = _deriveKey(password, salt);
-      final iv = encrypt.IV.fromSecureRandom(16);
-
-      final encrypter = encrypt.Encrypter(encrypt.AES(key));
-      final encrypted = encrypter.encryptBytes(outputZip, iv: iv);
-      final encryptedData = salt + iv.bytes + encrypted.bytes;
-
-      onProgress?.call('Uploading to cloud...');
+      onProgress?.call('Optimizing compression...');
       
-      // Create backup metadata
-      final timestamp = DateTime.now();
-      final backupId = 'backup_${deviceId}_${timestamp.millisecondsSinceEpoch}';
-      final backupName = 'Alkhazna_${DateFormat('yyyy-MM-dd_HH-mm-ss').format(timestamp)}';
+      // First create initial archive
+      final initialZip = ZipEncoder().encode(archive);
       
-      // Store backup data directly in Firestore (bypassing Firebase Storage issues)
-      onProgress?.call('Preparing cloud backup...');
-      
-      // Split large backup into chunks for Firestore storage
-      final base64Data = base64Encode(encryptedData);
-      const chunkSize = 500000; // ~500KB chunks to stay well under Firestore limits
-      final chunks = <String>[];
-      
-      try {
-        onProgress?.call('Encrypting and compressing backup... 50%');
-        
-        for (int i = 0; i < base64Data.length; i += chunkSize) {
-          final end = (i + chunkSize < base64Data.length) ? i + chunkSize : base64Data.length;
-          chunks.add(base64Data.substring(i, end));
-        }
-        
-        onProgress?.call('Uploading backup ... 75%');
-        
-        // Store chunks individually with delays to avoid rate limiting
-        for (int i = 0; i < chunks.length; i++) {
-          final chunkRef = _firestore
-              .collection('backups')
-              .doc(deviceId)
-              .collection('user_backups')
-              .doc(backupId)
-              .collection('chunks')
-              .doc('chunk_$i');
-          
-          await chunkRef.set({
-            'data': chunks[i],
-            'index': i,
-            'timestamp': timestamp.toIso8601String(),
-          });
-          
-          // Update progress for each chunk
-          final progress = 1 + ((i + 1) / chunks.length * 20).round();
-          onProgress?.call('Uploading backup $progress%');
-          
-          // Add small delay to prevent Firestore rate limiting
-          if (i < chunks.length - 1) {
-            await Future.delayed(const Duration(milliseconds: 100));
-          }
-        }
-        
-        onProgress?.call('Cloud backup completed successfully!');
-        
-      } catch (e) {
-        debugPrint('Firestore backup error: $e');
-        if (e.toString().contains('permission-denied')) {
-          throw Exception('Permission denied. Please check Firestore security rules.');
-        } else if (e.toString().contains('quota-exceeded')) {
-          throw Exception('Storage quota exceeded. Please upgrade your Firebase plan.');
-        } else if (e.toString().contains('network')) {
-          throw Exception('Network error. Please check your internet connection.');
-        } else {
-          throw Exception('Cloud backup failed: ${e.toString()}');
-        }
-      }
-      onProgress?.call('Saving backup metadata...');
-
-      // Save metadata to Firestore with chunk info
-      final metadata = CloudBackupMetadata(
-        id: backupId,
-        name: backupName,
-        createdAt: timestamp,
-        size: encryptedData.length,
-        userId: deviceId,
-        deviceInfo: Platform.operatingSystem,
-        appVersion: '1.0.0',
+      // Apply advanced compression with progress tracking
+      final compressionResult = await AdvancedCompressionService.compressData(
+        data: Uint8List.fromList(initialZip),
+        compressionLevel: 'balanced',
+        onProgress: (status) => onProgress?.call('Advanced compression: $status'),
       );
+      
+      final outputZip = compressionResult.compressedData;
+      
+      // Log compression statistics
+      debugPrint('Compression Stats:');
+      debugPrint('  Original size: ${compressionResult.originalSize} bytes');
+      debugPrint('  Compressed size: ${compressionResult.compressedSize} bytes');
+      debugPrint('  Compression ratio: ${(compressionResult.compressionRatio * 100).toStringAsFixed(1)}%');
+      debugPrint('  Space saved: ${compressionResult.originalSize - compressionResult.compressedSize} bytes');
+      debugPrint('  Compression time: ${compressionResult.compressionTime.inMilliseconds}ms');
 
-      final metadataWithChunks = metadata.toMap();
-      metadataWithChunks['chunkCount'] = chunks.length;
-      metadataWithChunks['storageType'] = 'firestore';
-
-      await _firestore
-          .collection('backups')
-          .doc(deviceId)
-          .collection('user_backups')
-          .doc(backupId)
-          .set(metadataWithChunks);
-
-      onProgress?.call('Cloud backup completed successfully!');
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Cloud backup "$backupName" created successfully!')),
-        );
-      }
-      return true;
+      // Process large backups with streaming encryption to avoid memory issues
+      return await _createStreamingBackup(
+        context, 
+        outputZip, 
+        deviceId, 
+        password, 
+        onProgress
+      );
     } catch (e) {
       if (!context.mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -388,93 +367,93 @@ class CloudBackupService {
     try {
       // Ensure user is authenticated
       if (_auth.currentUser == null) {
-        if (!await signInAnonymously(context)) return [];
+        debugPrint('No authenticated user, signing in anonymously...');
+        if (!await signInAnonymously(context)) {
+          debugPrint('Anonymous sign-in failed');
+          return [];
+        }
+        debugPrint('Anonymous sign-in successful: ${_auth.currentUser?.uid}');
       }
+
+      // DEBUG: List all backups to help troubleshoot
+      await debugListAllBackups();
 
       // Migrate old backups if needed
       await _migrateOldBackupsIfNeeded();
 
-      final deviceId = await _getOrCreateDeviceId();
+      // Search across ALL possible device IDs to find backups
+      final possibleDeviceIds = await _getPossibleDeviceIds();
+      debugPrint('Searching for backups across ${possibleDeviceIds.length} device IDs');
       
-      // First try to get backups from current device ID with size limit
-      var querySnapshot = await _firestore
-          .collection('backups')
-          .doc(deviceId)
-          .collection('user_backups')
-          .orderBy('createdAt', descending: true)
-          .limit(20) // Limit to most recent 20 backups to avoid memory issues
-          .get();
+      List<CloudBackupMetadata> allBackups = [];
+      
+      // Search each possible device ID location
+      for (final deviceId in possibleDeviceIds) {
+        try {
+          debugPrint('Checking device ID: ${deviceId.length > 50 ? deviceId.substring(0, 50) + "..." : deviceId}');
+          
+          var querySnapshot = await _firestore
+              .collection('backups')
+              .doc(deviceId)
+              .collection('user_backups')
+              .orderBy('createdAt', descending: true)
+              .limit(20) // Limit to most recent 20 backups to avoid memory issues
+              .get();
 
-      List<CloudBackupMetadata> backups = querySnapshot.docs
-          .map((doc) => CloudBackupMetadata.fromMap(doc.data()))
-          .where((backup) => backup.size < 30 * 1024 * 1024) // Filter out backups larger than 30MB
-          .toList();
-
-      // If no backups found, try to search for backups from previous installations
-      if (backups.isEmpty) {
-        if (context.mounted) {
-          backups = await _searchForBackupsFromOldDeviceIds(context);
+          if (querySnapshot.docs.isNotEmpty) {
+            final backups = querySnapshot.docs
+                .map((doc) => CloudBackupMetadata.fromMap(doc.data()))
+                .toList();
+            
+            debugPrint('Found ${backups.length} backups for device ID: ${deviceId.substring(0, 12)}...');
+            allBackups.addAll(backups);
+            
+            // If this isn't the current device ID, migrate backups
+            final currentDeviceId = await _getOrCreateDeviceId();
+            if (deviceId != currentDeviceId) {
+              debugPrint('Migrating ${backups.length} backups to current device ID');
+              await _migrateBackupsToCurrentDevice(deviceId, backups);
+            }
+          } else {
+            debugPrint('No backups found for device ID: ${deviceId.substring(0, 12)}...');
+          }
+        } catch (e) {
+          debugPrint('Error checking device ID $deviceId: $e');
+          continue; // Continue with next device ID
         }
       }
 
-      return backups;
+      // Remove duplicates based on backup ID and sort by creation date
+      final uniqueBackups = <String, CloudBackupMetadata>{};
+      for (final backup in allBackups) {
+        uniqueBackups[backup.id] = backup;
+      }
+      
+      final result = uniqueBackups.values.toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      
+      debugPrint('Found ${result.length} unique cloud backups total');
+      
+      if (result.isEmpty) {
+        debugPrint('=== NO BACKUPS FOUND ANYWHERE ===');
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No cloud backups found. Create a backup first.'),
+              duration: Duration(seconds: 4),
+            ),
+          );
+        }
+      }
+
+      return result;
     } catch (e) {
+      debugPrint('Critical error in getCloudBackups: $e');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to load cloud backups: $e')),
         );
       }
-      return [];
-    }
-  }
-
-  Future<List<CloudBackupMetadata>> _searchForBackupsFromOldDeviceIds(BuildContext context) async {
-    try {
-      // Search for backups that might belong to this device but under different IDs
-      final possibleDeviceIds = await _getPossibleDeviceIds();
-      // Remove current device ID since it's already been searched
-      final currentDeviceId = await _getOrCreateDeviceId();
-      possibleDeviceIds.remove(currentDeviceId);
-
-      List<CloudBackupMetadata> foundBackups = [];
-
-      for (final deviceId in possibleDeviceIds) {
-        try {
-          final querySnapshot = await _firestore
-              .collection('backups')
-              .doc(deviceId)
-              .collection('user_backups')
-              .orderBy('createdAt', descending: true)
-              .limit(10) // Limit to avoid too many queries
-              .get();
-
-          final backups = querySnapshot.docs
-              .map((doc) => CloudBackupMetadata.fromMap(doc.data()))
-              .toList();
-
-          if (backups.isNotEmpty) {
-            foundBackups.addAll(backups);
-            
-            // If we found backups, migrate them to current device ID
-            await _migrateBackupsToCurrentDevice(deviceId, backups);
-            debugPrint('Found and migrated ${backups.length} backups from device ID: $deviceId');
-            // Don't break - continue searching for more backups in other locations
-          }
-        } catch (e) {
-          // Continue searching even if one device ID fails
-          debugPrint('Failed to search device ID $deviceId: $e');
-        }
-      }
-
-      // Remove duplicates based on backup ID
-      final uniqueBackups = <String, CloudBackupMetadata>{};
-      for (final backup in foundBackups) {
-        uniqueBackups[backup.id] = backup;
-      }
-
-      return uniqueBackups.values.toList();
-    } catch (e) {
-      debugPrint('Error searching for old backups: $e');
       return [];
     }
   }
@@ -526,19 +505,27 @@ class CloudBackupService {
   }
 
   Future<bool> restoreFromCloud(BuildContext context, CloudBackupMetadata backup, {Function(String)? onProgress}) async {
+    debugPrint('=== RESTORE DEBUG INFO ===');
+    debugPrint('Starting cloud backup restore for: ${backup.id}');
+    debugPrint('Backup userId: ${backup.userId}');
+    debugPrint('Backup name: ${backup.name}');
+    debugPrint('Backup size: ${backup.size} bytes');
+    debugPrint('Backup created: ${backup.createdAt}');
+    
+    // List all available backups for comparison
+    await debugListAllBackups();
+    
     try {
-      debugPrint('Starting cloud backup restore for: ${backup.id}');
-      
-      // Check if backup size is reasonable for device memory (lowered limit)
-      if (backup.size > 30 * 1024 * 1024) { // 30MB limit for better stability
-        if (!context.mounted) return false;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Backup is too large (${formatFileSize(backup.size)}). This device can only restore backups up to 30MB.'),
-            duration: const Duration(seconds: 5),
-          ),
-        );
+      // Essential early checks to prevent crashes
+      if (!context.mounted) {
+        debugPrint('Context not mounted at start of restore');
         return false;
+      }
+      
+      // Large backups will be restored with streaming to avoid memory issues
+      final isLargeBackup = backup.size > 50 * 1024 * 1024; // 50MB+ gets special handling
+      if (isLargeBackup) {
+        onProgress?.call('Preparing streaming restore for large backup (${formatFileSize(backup.size)})...');
       }
       
       // Ensure user is authenticated
@@ -560,14 +547,14 @@ class CloudBackupService {
 
       onProgress?.call('Downloading from cloud...');
       
-      late List<int> fileBytes;
+      late List<String> base64Chunks;
       
       // Download from Firestore chunks with fallback device IDs
       try {
         debugPrint('Attempting to download backup chunks');
-        fileBytes = await _downloadBackupChunks(backup, onProgress);
+        base64Chunks = await _downloadBackupChunks(backup, onProgress);
         
-        if (fileBytes.isEmpty) {
+        if (base64Chunks.isEmpty) {
           debugPrint('No backup data found in any location');
           if (!context.mounted) return false;
           ScaffoldMessenger.of(context).showSnackBar(
@@ -576,7 +563,7 @@ class CloudBackupService {
           return false;
         }
         
-        debugPrint('Successfully downloaded ${fileBytes.length} bytes');
+        debugPrint('Successfully downloaded ${base64Chunks.length} Base64 chunks');
         
       } catch (e) {
         debugPrint('Error downloading backup chunks: $e');
@@ -600,20 +587,57 @@ class CloudBackupService {
 
       onProgress?.call('Decrypting backup...');
       
-      // Decrypt the data (same as local backup restore)
-      final salt = Uint8List.fromList(fileBytes.sublist(0, 8));
-      final ivBytes = Uint8List.fromList(fileBytes.sublist(8, 24));
-      final encryptedBytes = Uint8List.fromList(fileBytes.sublist(24));
+      late Archive archive;
+      
+      try {
+        // First, try decrypting with the new, stronger key derivation
+        final decryptedBytes = await _decryptChunks(base64Chunks, password, onProgress, isLegacy: false);
+        archive = ZipDecoder().decodeBytes(decryptedBytes);
+        debugPrint('Successfully decrypted with modern key.');
 
-      final key = _deriveKey(password, salt);
-      final iv = encrypt.IV(ivBytes);
+      } catch (e) {
+        debugPrint('Decryption with modern key failed: $e');
+        
+        // If it's a password-related error OR a zip decoding error, try falling back to the legacy key derivation
+        if (e.toString().contains('Invalid or corrupted pad block') ||
+            e.toString().contains('Bad decrypt') ||
+            e.toString().contains('Invalid padding') ||
+            e is ArchiveException) { // Catching zip errors too
+              
+          debugPrint('Attempting decryption with legacy key...');
+          onProgress?.call('Password failed, trying legacy mode...');
+          
+          try {
+            // Second attempt: use the legacy key derivation for old backups
+            final decryptedBytes = await _decryptChunks(base64Chunks, password, onProgress, isLegacy: true);
+            archive = ZipDecoder().decodeBytes(decryptedBytes);
+            debugPrint('Successfully decrypted with legacy key.');
 
-      final encrypter = encrypt.Encrypter(encrypt.AES(key));
-      final decryptedBytes =
-          encrypter.decryptBytes(encrypt.Encrypted(encryptedBytes), iv: iv);
+          } catch (legacyError) {
+            // If legacy also fails, then it's truly a wrong password or corrupted file
+            debugPrint('Decryption with legacy key also failed: $legacyError');
+            if (!context.mounted) return false;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Invalid password or corrupted backup file.'),
+                duration: Duration(seconds: 5),
+              ),
+            );
+            return false;
+          }
 
-      onProgress?.call('Extracting backup contents...');
-      final archive = ZipDecoder().decodeBytes(decryptedBytes);
+        } else {
+          // It's a different, non-password-related error
+          if (!context.mounted) return false;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to decrypt backup: ${e.toString().length > 80 ? e.toString().substring(0, 80) + "..." : e.toString()}'),
+              duration: const Duration(seconds: 5),
+            ),
+          );
+          return false;
+        }
+      }
 
       // Same restore logic as local backup
       onProgress?.call('Verifying backup integrity...');
@@ -676,13 +700,120 @@ class CloudBackupService {
 
       await _showRestartDialog(context); // ignore: use_build_context_synchronously
       return true;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('Critical error during cloud restore: $e');
+      debugPrint('Stack trace: $stackTrace');
+      
+      // Always try to clean up temp directories
+      try {
+        final tempDir = await getTemporaryDirectory();
+        final tempRestoreDir = Directory('${tempDir.path}/restore_temp_cloud');
+        if (tempRestoreDir.existsSync()) {
+          tempRestoreDir.deleteSync(recursive: true);
+        }
+      } catch (cleanupError) {
+        debugPrint('Failed to cleanup temp directories: $cleanupError');
+      }
+      
       if (!context.mounted) return false;
+      
+      // Provide specific error messages for common failures
+      String errorMessage = 'Cloud restore failed';
+      if (e.toString().contains('OutOfMemory') || e.toString().contains('allocation')) {
+        errorMessage = 'Not enough memory to restore this backup. Try restarting the app.';
+      } else if (e.toString().contains('permission-denied')) {
+        errorMessage = 'Permission denied. Please check your internet connection and try again.';
+      } else if (e.toString().contains('network')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (e.toString().contains('decrypt')) {
+        errorMessage = 'Failed to decrypt backup. Please check your password.';
+      } else if (e.toString().contains('corrupt')) {
+        errorMessage = 'Backup file appears to be corrupted.';
+      } else {
+        errorMessage = 'Cloud restore failed: ${e.toString().length > 100 ? e.toString().substring(0, 100) + "..." : e.toString()}';
+      }
+      
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Cloud restore failed: $e')),
+        SnackBar(
+          content: Text(errorMessage),
+          duration: const Duration(seconds: 5),
+        ),
       );
       return false;
     }
+  }
+
+  Future<Uint8List> _decryptChunks(List<String> base64Chunks, String password, Function(String)? onProgress, {required bool isLegacy}) async {
+    if (base64Chunks.isEmpty) {
+      throw Exception('No Base64 chunks to decrypt');
+    }
+
+    debugPrint('Starting chunk-by-chunk decryption of ${base64Chunks.length} chunks (isLegacy: $isLegacy)');
+
+    final List<Uint8List> decryptedChunks = [];
+    encrypt.Key? key;
+    encrypt.IV? iv;
+    encrypt.Encrypter? encrypter;
+
+    for (int i = 0; i < base64Chunks.length; i++) {
+      final chunkBinary = base64Decode(base64Chunks[i]);
+
+      if (i == 0) {
+        // First chunk contains salt + IV + encrypted data
+        if (chunkBinary.length < 24) {
+          throw Exception('First chunk too small - expected at least 24 bytes, got ${chunkBinary.length}');
+        }
+
+        final salt = Uint8List.fromList(chunkBinary.sublist(0, 8));
+        final ivBytes = Uint8List.fromList(chunkBinary.sublist(8, 24));
+        final encryptedData = Uint8List.fromList(chunkBinary.sublist(24));
+
+        key = isLegacy ? _deriveKeyLegacy(password, salt) : _deriveKey(password, salt);
+        iv = encrypt.IV(ivBytes);
+        encrypter = encrypt.Encrypter(encrypt.AES(key));
+
+        debugPrint('Chunk 0: salt=${salt.length}bytes, iv=${ivBytes.length}bytes, encrypted=${encryptedData.length}bytes');
+
+        // Decrypt first chunk
+        final decryptedChunk = encrypter.decryptBytes(encrypt.Encrypted(encryptedData), iv: iv);
+        decryptedChunks.add(Uint8List.fromList(decryptedChunk));
+        debugPrint('Decrypted chunk 0: ${encryptedData.length} -> ${decryptedChunk.length} bytes');
+
+      } else {
+        // Subsequent chunks are just encrypted data (no header)
+        if (encrypter == null || iv == null) {
+          throw Exception('Encryption setup failed - missing key/IV from first chunk');
+        }
+
+        debugPrint('Chunk $i: encrypted=${chunkBinary.length}bytes');
+
+        // Decrypt chunk
+        final decryptedChunk = encrypter.decryptBytes(encrypt.Encrypted(chunkBinary), iv: iv);
+        decryptedChunks.add(Uint8List.fromList(decryptedChunk));
+        debugPrint('Decrypted chunk $i: ${chunkBinary.length} -> ${decryptedChunk.length} bytes');
+      }
+
+      final progress = ((i + 1) / base64Chunks.length * 50).round();
+      onProgress?.call('Decrypting chunk ${i + 1}/${base64Chunks.length} ($progress%)');
+    }
+
+    if (decryptedChunks.isEmpty) {
+      throw Exception('No chunks were successfully decrypted');
+    }
+
+    // Combine all decrypted chunks into final plaintext
+    onProgress?.call('Reassembling decrypted data...');
+    final totalLength = decryptedChunks.fold<int>(0, (sum, chunk) => sum + chunk.length);
+    final decryptedBytes = Uint8List(totalLength);
+
+    int offset = 0;
+    for (final chunk in decryptedChunks) {
+      decryptedBytes.setAll(offset, chunk);
+      offset += chunk.length;
+    }
+
+    debugPrint('Successfully decrypted ${decryptedBytes.length} bytes from ${decryptedChunks.length} chunks');
+    return decryptedBytes;
   }
 
   Future<void> _performRestore(Directory appDir, String tempRestorePath, BuildContext context) async {
@@ -700,6 +831,139 @@ class CloudBackupService {
         File(newPath).createSync(recursive: true);
         file.copySync(newPath);
       }
+    }
+  }
+
+  Future<bool> _createStreamingBackup(
+    BuildContext context, 
+    Uint8List compressedData, 
+    String deviceId, 
+    String password, 
+    Function(String)? onProgress
+  ) async {
+    try {
+      onProgress?.call('Streaming encryption for large backup...');
+      
+      // Create salt and IV
+      final salt = encrypt.IV.fromSecureRandom(8).bytes;
+      final key = _deriveKey(password, salt);
+      final iv = encrypt.IV.fromSecureRandom(16);
+      final encrypter = encrypt.Encrypter(encrypt.AES(key));
+
+      // Create backup metadata
+      final timestamp = DateTime.now();
+      final backupId = 'backup_${deviceId}_${timestamp.millisecondsSinceEpoch}';
+      final backupName = 'Alkhazna_${DateFormat('yyyy-MM-dd_HH-mm-ss').format(timestamp)}';
+      
+      onProgress?.call('Processing data in chunks...');
+      
+      // Process data in smaller chunks to avoid memory issues
+      const int chunkSize = 256 * 1024; // 256KB chunks for processing
+      final List<String> base64Chunks = [];
+      int totalProcessed = 0;
+      
+      // Add salt and IV to beginning
+      final headerBytes = salt + iv.bytes;
+      
+      for (int i = 0; i < compressedData.length; i += chunkSize) {
+        final endIndex = (i + chunkSize < compressedData.length) ? i + chunkSize : compressedData.length;
+        final chunk = compressedData.sublist(i, endIndex);
+        
+        // Encrypt chunk
+        final encryptedChunk = encrypter.encryptBytes(chunk, iv: iv);
+        
+        // For first chunk, prepend header (salt + iv)
+        final finalChunk = i == 0 
+            ? Uint8List.fromList(headerBytes + encryptedChunk.bytes)
+            : encryptedChunk.bytes;
+        
+        // Convert to base64
+        final base64Chunk = base64Encode(finalChunk);
+        base64Chunks.add(base64Chunk);
+        
+        totalProcessed += chunk.length;
+        final progress = (totalProcessed / compressedData.length * 50).round(); // First 50% for processing
+        onProgress?.call('Processing: $progress% (${formatFileSize(totalProcessed)}/${formatFileSize(compressedData.length)})');
+        
+        // Small delay to prevent UI blocking
+        await Future.delayed(const Duration(milliseconds: 10));
+      }
+      
+      onProgress?.call('Uploading ${base64Chunks.length} chunks to cloud...');
+      
+      // Upload chunks with progress
+      for (int i = 0; i < base64Chunks.length; i++) {
+        final chunkRef = _firestore
+            .collection('backups')
+            .doc(deviceId)
+            .collection('user_backups')
+            .doc(backupId)
+            .collection('chunks')
+            .doc('chunk_$i');
+        
+        await chunkRef.set({
+          'data': base64Chunks[i],
+          'index': i,
+          'timestamp': timestamp.toIso8601String(),
+        });
+        
+        // Update progress (50% + 40% for upload)
+        final uploadProgress = 50 + ((i + 1) / base64Chunks.length * 40).round();
+        onProgress?.call('Uploading: $uploadProgress% (${i + 1}/${base64Chunks.length} chunks)');
+        
+        // Longer delay to prevent Firestore write stream exhaustion
+        await Future.delayed(const Duration(milliseconds: 200));
+      }
+      
+      onProgress?.call('Saving backup metadata...');
+      
+      // Calculate total size including encryption overhead
+      final totalEncryptedSize = base64Chunks.fold<int>(0, (sum, chunk) => sum + chunk.length);
+      
+      // Save metadata
+      final metadata = CloudBackupMetadata(
+        id: backupId,
+        name: backupName,
+        createdAt: timestamp,
+        size: totalEncryptedSize,
+        userId: deviceId,
+        deviceInfo: Platform.operatingSystem,
+        appVersion: '1.0.0',
+      );
+
+      final metadataWithChunks = metadata.toMap();
+      metadataWithChunks['chunkCount'] = base64Chunks.length;
+      metadataWithChunks['storageType'] = 'firestore_streaming';
+      metadataWithChunks['originalSize'] = compressedData.length;
+
+      await _firestore
+          .collection('backups')
+          .doc(deviceId)
+          .collection('user_backups')
+          .doc(backupId)
+          .set(metadataWithChunks);
+
+      onProgress?.call('Large backup completed successfully!');
+      
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Large backup "$backupName" (${formatFileSize(totalEncryptedSize)}) created successfully!'),
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+      
+      return true;
+      
+    } catch (e) {
+      debugPrint('Streaming backup error: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Streaming backup failed: $e')),
+        );
+      }
+      return false;
     }
   }
 
@@ -766,24 +1030,17 @@ class CloudBackupService {
           
           if (backupDoc.exists) {
             // Get chunk count from metadata first
-            final backupData = backupDoc.data() as Map<String, dynamic>?;
+            final backupData = backupDoc.data();
             final chunkCount = backupData?['chunkCount'] ?? 0;
             
             if (chunkCount > 0) {
               debugPrint('Deleting $chunkCount chunks in batches...');
               
-              // Safety check for extremely large backups
-              if (chunkCount > 2000) { // More than 2000 chunks (~1GB backup)
-                debugPrint('Backup too large to delete safely: $chunkCount chunks');
-                if (!context.mounted) return false;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Backup is too large ($chunkCount chunks) to delete safely on this device.'),
-                    duration: const Duration(seconds: 5),
-                  ),
-                );
-                return false;
-              }
+              // Use batch deletion for very large backups
+              if (chunkCount > 2000) {
+                debugPrint('Using optimized batch deletion for very large backup: $chunkCount chunks');
+                await _deleteChunksInOptimizedBatches(deviceId, backup.id, chunkCount);
+              } else {
               
               // Delete chunks in small batches to avoid memory issues
               const batchSize = 10; // Delete 10 chunks at a time
@@ -818,6 +1075,7 @@ class CloudBackupService {
                   // Continue with next batch even if one fails
                 }
               }
+              } // Close the else block for standard batch deletion
             }
 
             // Delete metadata from Firestore
@@ -850,34 +1108,65 @@ class CloudBackupService {
         SnackBar(content: Text('Cloud backup "${backup.name}" deleted successfully')),
       );
       return true;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('Critical error during cloud backup deletion: $e');
+      debugPrint('Stack trace: $stackTrace');
+      
       if (!context.mounted) return false;
+      
+      // Provide specific error messages for common failures
+      String errorMessage = 'Failed to delete cloud backup';
+      if (e.toString().contains('permission-denied')) {
+        errorMessage = 'Permission denied. Please check your internet connection and try again.';
+      } else if (e.toString().contains('network')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (e.toString().contains('not-found')) {
+        errorMessage = 'Backup not found or already deleted.';
+      } else {
+        errorMessage = 'Failed to delete cloud backup: ${e.toString().length > 80 ? e.toString().substring(0, 80) + "..." : e.toString()}';
+      }
+      
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to delete cloud backup: $e')),
+        SnackBar(
+          content: Text(errorMessage),
+          duration: const Duration(seconds: 5),
+        ),
       );
       return false;
     }
   }
 
-  Future<List<int>> _downloadBackupChunks(CloudBackupMetadata backup, Function(String)? onProgress) async {
+
+  Future<List<String>> _downloadBackupChunks(CloudBackupMetadata backup, Function(String)? onProgress) async {
     try {
       final possibleDeviceIds = await _getPossibleDeviceIds();
-      debugPrint('_downloadBackupChunks: Searching ${possibleDeviceIds.length} device IDs');
+      debugPrint('_downloadBackupChunks: Searching ${possibleDeviceIds.length} device IDs for backup: ${backup.id}');
+      debugPrint('Backup userId from metadata: ${backup.userId}');
+      
+      // Add the backup's original userId to search list if not already there
+      if (!possibleDeviceIds.contains(backup.userId)) {
+        possibleDeviceIds.insert(0, backup.userId); // Try original device ID first
+        debugPrint('Added backup original userId: ${backup.userId}');
+      }
       
       if (possibleDeviceIds.isEmpty) {
         debugPrint('No device IDs to search');
-        return [];
+        onProgress?.call('Error: No backup locations to search');
+        throw Exception('No device IDs available for backup search');
       }
+      
+      Exception? lastError;
       
       for (final deviceId in possibleDeviceIds) {
         try {
           final displayId = deviceId.length > 12 ? deviceId.substring(0, 12) : deviceId;
           onProgress?.call('Searching backup in device: $displayId...');
-          debugPrint('Trying device ID: $deviceId');
+          debugPrint('Trying device ID: $deviceId (full: ${deviceId.length > 50 ? deviceId.substring(0, 50) + "..." : deviceId})');
           
           // First, get total chunk count with a minimal query
           DocumentSnapshot? metadataDoc;
           try {
+            debugPrint('Checking path: backups/$deviceId/user_backups/${backup.id}');
             metadataDoc = await _firestore
                 .collection('backups')
                 .doc(deviceId)
@@ -885,51 +1174,84 @@ class CloudBackupService {
                 .doc(backup.id)
                 .get();
           } catch (e) {
-            debugPrint('Failed to get backup metadata: $e');
+            debugPrint('Failed to get backup metadata for device $deviceId: $e');
+            lastError = Exception('Failed to access backup metadata: $e');
             continue; // Try next device ID
           }
           
           if (!metadataDoc.exists) {
-            debugPrint('Backup metadata not found for device: $deviceId');
+            debugPrint('Backup metadata not found at path: backups/$deviceId/user_backups/${backup.id}');
+            lastError = Exception('Backup not found in cloud storage');
             continue; // Try next device ID
           }
+          
+          debugPrint('Found backup metadata at device: $deviceId');
           
           final metadataData = metadataDoc.data() as Map<String, dynamic>?;
           final chunkCount = metadataData?['chunkCount'] ?? 0;
           
           if (chunkCount == 0) {
             debugPrint('No chunks found in metadata for device: $deviceId');
+            lastError = Exception('Backup contains no data chunks');
             continue; // Try next device ID
           }
           
           onProgress?.call('Found backup! Loading $chunkCount chunks...');
           
           // Download chunks in small batches to avoid memory issues
-          return await _downloadChunksInBatches(deviceId, backup.id, chunkCount, onProgress);
+          final result = await _downloadChunksInBatches(deviceId, backup.id, chunkCount, onProgress);
+          
+          if (result.isNotEmpty) {
+            debugPrint('Successfully downloaded backup data: ${result.length} bytes');
+            return result;
+          } else {
+            lastError = Exception('Downloaded backup data is empty');
+          }
           
         } catch (e) {
           debugPrint('Failed to download from device ID $deviceId: $e');
+          lastError = Exception('Download failed: $e');
+          
           if (e.toString().contains('permission-denied')) {
             onProgress?.call('Permission denied. Trying next location...');
           } else if (e.toString().contains('network')) {
             onProgress?.call('Network error. Trying next location...');
+          } else {
+            onProgress?.call('Error occurred. Trying next location...');
           }
           continue; // Try next device ID
         }
       }
       
-      return []; // Empty list if not found anywhere
+      // If we get here, no device ID worked
+      final errorMsg = lastError?.toString() ?? 'Backup data not found in any cloud location';
+      debugPrint('All device IDs failed. Last error: $errorMsg');
+      onProgress?.call('Backup data not found on cloud');
+      throw Exception(errorMsg);
       
     } catch (e) {
       debugPrint('Critical error in _downloadBackupChunks: $e');
-      return []; // Return empty list to prevent crash
+      onProgress?.call('Failed to locate backup data');
+      rethrow; // Re-throw to let caller handle it
     }
   }
 
 
-  Future<List<int>> _downloadChunksInBatches(String deviceId, String backupId, int chunkCount, Function(String)? onProgress) async {
+  Future<List<String>> _downloadChunksInBatches(String deviceId, String backupId, int chunkCount, Function(String)? onProgress) async {
     try {
-      const batchSize = 5; // Download 5 chunks at a time to avoid memory issues
+      // Safety checks
+      if (chunkCount <= 0) {
+        debugPrint('Invalid chunk count: $chunkCount');
+        return [];
+      }
+      
+      // Use streaming download for very large backups
+      if (chunkCount > 2000) { // More than 2000 chunks (~100MB)
+        onProgress?.call('Using streaming download for very large backup...');
+        return await _downloadChunksStreamingMode(deviceId, backupId, chunkCount, onProgress);
+      }
+      
+      const batchSize = 20; // Increased batch size for faster restore
       final List<String> allChunkData = [];
       
       for (int batchStart = 0; batchStart < chunkCount; batchStart += batchSize) {
@@ -938,41 +1260,61 @@ class CloudBackupService {
         onProgress?.call('Downloading chunks ${batchStart + 1}-$batchEnd of $chunkCount...');
         
         try {
-          // Download this batch of chunks
-          final batch = await _downloadChunkBatch(deviceId, backupId, batchStart, batchEnd - 1);
+          // Download this batch of chunks with timeout
+          final batch = await _downloadChunkBatch(deviceId, backupId, batchStart, batchEnd - 1)
+              .timeout(const Duration(seconds: 30));
+          
+          if (batch.isEmpty) {
+            throw Exception('Empty batch received for chunks $batchStart-${batchEnd-1}');
+          }
+          
           allChunkData.addAll(batch);
           
           // Update progress
           final progress = ((batchEnd) / chunkCount * 80).round();
           onProgress?.call('Downloaded: $progress%');
           
-          // Small delay to allow garbage collection
-          await Future.delayed(const Duration(milliseconds: 200));
+          // Shorter delay for faster restore
+          await Future.delayed(const Duration(milliseconds: 100));
           
         } catch (e) {
           debugPrint('Failed to download batch $batchStart-${batchEnd-1}: $e');
-          throw Exception('Failed to download backup chunks: $e');
+          allChunkData.clear(); // Clean up memory
+          rethrow;
         }
       }
       
       onProgress?.call('Assembling backup data...');
       
-      // Join all chunk data and decode
-      final completeBase64 = allChunkData.join('');
-      allChunkData.clear(); // Free memory immediately
+      if (allChunkData.isEmpty) {
+        throw Exception('No chunk data downloaded');
+      }
       
+      // Keep chunks as separate Base64 strings for proper decryption
       try {
-        final result = base64Decode(completeBase64);
+        if (allChunkData.isEmpty) {
+          throw Exception('Empty backup data assembled');
+        }
+        
         onProgress?.call('Backup download complete!');
+        
+        // Return the Base64 chunks as-is - decryption will handle them properly
+        // Each chunk needs to be decrypted individually, not joined first
+        debugPrint('Returning ${allChunkData.length} Base64 chunks for individual decryption');
+        final result = List<String>.from(allChunkData);
+        allChunkData.clear();
+        
         return result;
+        
       } catch (e) {
-        debugPrint('Error decoding complete backup data: $e');
-        throw Exception('Failed to decode backup data: corrupt backup file');
+        debugPrint('Error assembling backup data: $e');
+        allChunkData.clear(); // Ensure cleanup
+        rethrow;
       }
       
     } catch (e) {
       debugPrint('Error in _downloadChunksInBatches: $e');
-      throw Exception('Failed to download backup in batches: $e');
+      rethrow; // Let caller handle the error
     }
   }
 
@@ -992,7 +1334,18 @@ class CloudBackupService {
       final batchData = <String>[];
       for (final doc in batchQuery.docs) {
         final data = doc.data() as Map<String, dynamic>?;
-        batchData.add(data?['data'] ?? '');
+        final chunkData = data?['data'] as String?;
+        
+        if (chunkData == null || chunkData.isEmpty) {
+          debugPrint('Missing chunk data at index ${data?['index']} in document ${doc.id}');
+          throw Exception('Corrupted backup: missing chunk data at index ${data?['index']}');
+        }
+        
+        batchData.add(chunkData);
+      }
+      
+      if (batchData.isEmpty) {
+        throw Exception('No chunks found in batch $startIndex-$endIndex');
       }
       
       return batchData;
@@ -1003,22 +1356,190 @@ class CloudBackupService {
     }
   }
 
+
   Future<List<String>> _getPossibleDeviceIds() async {
     final currentDeviceId = await _getOrCreateDeviceId();
     final possibleDeviceIds = <String>[currentDeviceId];
     
-    // Add alternative device ID patterns
-    possibleDeviceIds.add('device_fallback_${Platform.operatingSystem.hashCode.abs()}');
-    possibleDeviceIds.add('device_fp_${('${Platform.operatingSystem}_${Platform.localeName}_android_emulator').hashCode.abs()}');
+    debugPrint('Current device ID: $currentDeviceId');
     
-    // Also try Firebase auth UIDs from recent sessions
+    // Add all possible device ID patterns that could have been used historically
+    final os = Platform.operatingSystem;
+    final locale = Platform.localeName;
+    
+    // Pattern 1: Fallback pattern
+    final fallbackId = 'device_fallback_${os.hashCode.abs()}';
+    possibleDeviceIds.add(fallbackId);
+    
+    // Pattern 2: Full fingerprint pattern  
+    final combined = '${os}_${locale}_android_emulator';
+    final fingerprintId = 'device_fp_${combined.hashCode.abs()}';
+    possibleDeviceIds.add(fingerprintId);
+    
+    // Pattern 3: Alternative combinations
+    possibleDeviceIds.add('device_fp_${os.hashCode.abs()}');
+    possibleDeviceIds.add('device_fp_${locale.hashCode.abs()}');
+    possibleDeviceIds.add('device_fp_${('android_$locale').hashCode.abs()}');
+    
+    // Pattern 4: Common variations based on different device info combinations
+    possibleDeviceIds.add('device_fp_${('${os}_android').hashCode.abs()}');
+    possibleDeviceIds.add('device_fp_${('windows_android').hashCode.abs()}');
+    possibleDeviceIds.add('device_fp_${('android_en_US').hashCode.abs()}');
+    
+    // Pattern 5: Firebase auth UIDs from current and potential previous sessions
     if (_auth.currentUser != null) {
       possibleDeviceIds.add(_auth.currentUser!.uid);
+      debugPrint('Added current Firebase UID: ${_auth.currentUser!.uid}');
     }
     
-    // Remove duplicates while maintaining order
+    // Pattern 6: Try to get stored device IDs from SharedPreferences
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final storedIds = prefs.getStringList('previous_device_ids') ?? [];
+      for (final id in storedIds) {
+        if (id.isNotEmpty) {
+          possibleDeviceIds.add(id);
+        }
+      }
+      
+      // Store current device ID for future reference
+      final updatedIds = [...storedIds];
+      if (!updatedIds.contains(currentDeviceId)) {
+        updatedIds.add(currentDeviceId);
+        await prefs.setStringList('previous_device_ids', updatedIds.take(10).toList()); // Keep only last 10
+      }
+    } catch (e) {
+      debugPrint('Error accessing stored device IDs: $e');
+    }
+    
+    debugPrint('Generated ${possibleDeviceIds.length} possible device IDs:');
+    for (int i = 0; i < possibleDeviceIds.length; i++) {
+      final id = possibleDeviceIds[i];
+      final displayId = id.length > 50 ? '${id.substring(0, 50)}...' : id;
+      debugPrint('  $i: $displayId');
+    }
+    
+    // Remove duplicates while maintaining order (current device ID should be first)
     final seen = <String>{};
     return possibleDeviceIds.where((id) => seen.add(id)).toList();
+  }
+
+  Future<void> debugListAllBackups() async {
+    try {
+      debugPrint('=== DEBUG: Listing all backups in Firestore ===');
+      
+      final possibleDeviceIds = await _getPossibleDeviceIds();
+      
+      for (final deviceId in possibleDeviceIds) {
+        try {
+          debugPrint('Checking device: $deviceId');
+          final querySnapshot = await _firestore
+              .collection('backups')
+              .doc(deviceId)
+              .collection('user_backups')
+              .get();
+          
+          if (querySnapshot.docs.isNotEmpty) {
+            debugPrint('  Found ${querySnapshot.docs.length} backups:');
+            for (final doc in querySnapshot.docs) {
+              final data = doc.data();
+              debugPrint('    - ID: ${doc.id}');
+              debugPrint('    - Name: ${data['name']}');
+              debugPrint('    - Size: ${data['size']} bytes');
+              debugPrint('    - Created: ${data['createdAt']}');
+              debugPrint('    - Chunks: ${data['chunkCount']}');
+            }
+          } else {
+            debugPrint('  No backups found');
+          }
+        } catch (e) {
+          debugPrint('  Error checking device $deviceId: $e');
+        }
+        debugPrint('');
+      }
+      
+      debugPrint('=== END DEBUG LIST ===');
+    } catch (e) {
+      debugPrint('Error in debugListAllBackups: $e');
+    }
+  }
+
+  Future<List<String>> _downloadChunksStreamingMode(
+    String deviceId, 
+    String backupId, 
+    int chunkCount, 
+    Function(String)? onProgress
+  ) async {
+    try {
+      onProgress?.call('Streaming download of ${chunkCount} chunks...');
+      
+      // Download and collect Base64 chunks for individual decryption
+      const batchSize = 5; // Very small batches for huge files
+      final List<String> resultChunks = [];
+      
+      for (int batchStart = 0; batchStart < chunkCount; batchStart += batchSize) {
+        final batchEnd = (batchStart + batchSize < chunkCount) ? batchStart + batchSize : chunkCount;
+        
+        final batchData = await _downloadChunkBatch(deviceId, backupId, batchStart, batchEnd - 1);
+        
+        // Collect Base64 chunks directly (don't decode to binary yet)
+        resultChunks.addAll(batchData);
+        
+        final progress = ((batchEnd) / chunkCount * 80).round();
+        onProgress?.call('Streaming: $progress% (${batchEnd}/${chunkCount} chunks)');
+        
+        // Longer delay for very large downloads
+        await Future.delayed(const Duration(milliseconds: 200));
+      }
+      
+      onProgress?.call('Streaming download complete!');
+      debugPrint('Streaming mode returning ${resultChunks.length} Base64 chunks');
+      return resultChunks;
+      
+    } catch (e) {
+      debugPrint('Streaming download error: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> _deleteChunksInOptimizedBatches(
+    String deviceId, 
+    String backupId, 
+    int chunkCount
+  ) async {
+    try {
+      debugPrint('Optimized deletion of $chunkCount chunks...');
+      
+      // Delete in larger batches for efficiency
+      const batchSize = 50;
+      for (int batchStart = 0; batchStart < chunkCount; batchStart += batchSize) {
+        final batchEnd = (batchStart + batchSize < chunkCount) ? batchStart + batchSize : chunkCount;
+        
+        // Get batch references
+        final batchQuery = await _firestore
+            .collection('backups')
+            .doc(deviceId)
+            .collection('user_backups')
+            .doc(backupId)
+            .collection('chunks')
+            .where('index', isGreaterThanOrEqualTo: batchStart)
+            .where('index', isLessThanOrEqualTo: batchEnd - 1)
+            .limit(batchSize)
+            .get();
+
+        // Delete batch
+        for (final doc in batchQuery.docs) {
+          await doc.reference.delete();
+        }
+        
+        debugPrint('Deleted optimized batch $batchStart-${batchEnd-1}');
+        await Future.delayed(const Duration(milliseconds: 50));
+      }
+      
+    } catch (e) {
+      debugPrint('Optimized batch deletion error: $e');
+      rethrow;
+    }
   }
 
   String formatFileSize(int bytes) {
@@ -1031,5 +1552,35 @@ class CloudBackupService {
       i++;
     }
     return '${size.toStringAsFixed(1)} ${suffixes[i]}';
+  }
+
+  Future<void> oneClickBackup(BuildContext context) async {
+    try {
+      // Show progress to the user
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Starting backup...')),
+      );
+
+      // Call the existing createCloudBackup method
+      final success = await createCloudBackup(context, onProgress: (progress) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(progress)),
+        );
+      });
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Backup completed successfully!')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Backup failed. Please try again.')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error during backup: $e')),
+      );
+    }
   }
 }

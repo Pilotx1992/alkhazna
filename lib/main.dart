@@ -7,6 +7,8 @@ import 'models/income_entry.dart';
 import 'models/outcome_entry.dart';
 import 'models/entry_list_adapters.dart';
 import 'services/enhanced_backup_service.dart';
+import 'services/background_backup_service.dart';
+import 'services/scheduled_backup_service.dart';
 
 class AppTheme {
   static ThemeData get lightTheme {
@@ -139,6 +141,13 @@ void main() async {
     debugPrint('Firebase initialization failed: $e');
   }
 
+  // Initialize scheduled backup service
+  try {
+    await ScheduledBackupService().initialize();
+  } catch (e) {
+    debugPrint('Scheduled backup service initialization failed: $e');
+  }
+
   // Initialize Hive
   await Hive.initFlutter();
 
@@ -158,6 +167,9 @@ void main() async {
 
   // Initialize Enhanced Backup Service
   await EnhancedBackupService().initialize();
+  
+  // Initialize Background Backup Service
+  await BackgroundBackupService().initialize();
 
   runApp(const AlKhaznaApp());
 }

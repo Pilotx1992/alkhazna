@@ -29,6 +29,8 @@ class IncomeEntry extends HiveObject {
         'amount': amount,
         'date': date.toIso8601String(),
       };
+      
+  Map<String, dynamic> toMap() => toJson();
 
   factory IncomeEntry.fromJson(Map<String, dynamic> json) {
     return IncomeEntry(

@@ -283,11 +283,7 @@ class _BackupScreenState extends State<BackupScreen> {
                                   ],
                                 ),
                                 const SizedBox(height: 18),
-                                Text(
-                                  'Secure cloud storage with AES-256 encryption\nAutomatic authentication & data protection',
-                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.black54),
-                                  textAlign: TextAlign.center,
-                                ),
+                                
                                 const SizedBox(height: 16),
                                 ElevatedButton.icon(
                                   onPressed: _openCloudBackups,
