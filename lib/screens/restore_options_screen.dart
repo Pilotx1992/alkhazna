@@ -24,6 +24,7 @@ class _RestoreOptionsScreenState extends State<RestoreOptionsScreen> {
 
   Future<void> _loadBackups() async {
     try {
+      if (!mounted) return;
       setState(() {
         _isLoading = true;
         _error = null;
@@ -31,11 +32,13 @@ class _RestoreOptionsScreenState extends State<RestoreOptionsScreen> {
 
       final backupsWithIds = await _restoreService.listAvailableBackupsWithIds();
       
+      if (!mounted) return;
       setState(() {
         _backupsWithIds = backupsWithIds;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = 'Failed to load backups: $e';
         _isLoading = false;
@@ -104,7 +107,7 @@ class _RestoreOptionsScreenState extends State<RestoreOptionsScreen> {
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Merge: Add backup data to your existing data (Recommended)',
+                      'Restore',
                       style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.w500),
                     ),
                   ),
@@ -112,29 +115,6 @@ class _RestoreOptionsScreenState extends State<RestoreOptionsScreen> {
               ),
             ),
             
-            const SizedBox(height: 8),
-
-            // Replace option (warning)
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red.shade50,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red.shade200),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.warning, color: Colors.red, size: 20),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Replace: Delete all current data and replace with backup',
-                      style: TextStyle(color: Colors.red, fontSize: 12),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
         actions: [
@@ -148,15 +128,7 @@ class _RestoreOptionsScreenState extends State<RestoreOptionsScreen> {
               backgroundColor: Colors.green,
               foregroundColor: Colors.white,
             ),
-            child: const Text('Merge'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, 'replace'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Replace'),
+            child: const Text('Restore'),
           ),
         ],
       ),

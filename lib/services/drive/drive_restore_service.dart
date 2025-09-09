@@ -488,48 +488,38 @@ class DriveRestoreService extends ChangeNotifier {
       'July', 'August', 'September', 'October', 'November', 'December'
     ];
 
-    // Group income entries using proper date formatting
+    // Group income entries using direct date information (no re-parsing needed)
     final incomeByMonth = <String, List<IncomeEntry>>{};
     for (final entry in incomeEntries) {
-      // استخدم intl package للتأكد من parsing صحيح
-      final formatter = DateFormat('yyyy-MM-dd');
-      final formattedDate = formatter.format(entry.date);
-      final parsedDate = formatter.parse(formattedDate);
-      
-      // ضبط الـ month mapping
-      final monthName = monthNames[parsedDate.month - 1];
-      final monthKey = '${monthName}_${parsedDate.year}';
+      // Use the already correctly parsed date directly
+      final entryDate = entry.date;
+      final monthName = monthNames[entryDate.month - 1];
+      final monthKey = '${monthName}_${entryDate.year}';
       incomeByMonth.putIfAbsent(monthKey, () => []).add(entry);
       
       if (kDebugMode) {
-        print('✅ Income entry: ${entry.name}');
-        print('   Original date: ${entry.date}');
-        print('   Formatted: $formattedDate');  
-        print('   Parsed date: $parsedDate');
-        print('   Month: ${parsedDate.month} -> $monthName');
+        print('✅ DriveRestore - Income entry: ${entry.name}');
+        print('   Entry date: $entryDate');
+        print('   Month: ${entryDate.month} -> $monthName');
+        print('   Year: ${entryDate.year}');
         print('   Storage key: $monthKey');
       }
     }
 
-    // Group outcome entries using proper date formatting
+    // Group outcome entries using direct date information (no re-parsing needed)
     final outcomeByMonth = <String, List<OutcomeEntry>>{};
     for (final entry in outcomeEntries) {
-      // استخدم intl package للتأكد من parsing صحيح
-      final formatter = DateFormat('yyyy-MM-dd');
-      final formattedDate = formatter.format(entry.date);
-      final parsedDate = formatter.parse(formattedDate);
-      
-      // ضبط الـ month mapping
-      final monthName = monthNames[parsedDate.month - 1];
-      final monthKey = '${monthName}_${parsedDate.year}';
+      // Use the already correctly parsed date directly
+      final entryDate = entry.date;
+      final monthName = monthNames[entryDate.month - 1];
+      final monthKey = '${monthName}_${entryDate.year}';
       outcomeByMonth.putIfAbsent(monthKey, () => []).add(entry);
       
       if (kDebugMode) {
-        print('✅ Outcome entry: ${entry.name}');
-        print('   Original date: ${entry.date}');
-        print('   Formatted: $formattedDate');  
-        print('   Parsed date: $parsedDate');
-        print('   Month: ${parsedDate.month} -> $monthName');
+        print('✅ DriveRestore - Outcome entry: ${entry.name}');
+        print('   Entry date: $entryDate');
+        print('   Month: ${entryDate.month} -> $monthName');
+        print('   Year: ${entryDate.year}');
         print('   Storage key: $monthKey');
       }
     }

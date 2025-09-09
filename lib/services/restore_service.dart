@@ -222,22 +222,17 @@ class RestoreService extends ChangeNotifier {
           'July', 'August', 'September', 'October', 'November', 'December'
         ];
         
-        // استخدم intl package للتأكد من parsing صحيح
-        final formatter = DateFormat('yyyy-MM-dd');
-        final formattedDate = formatter.format(entry.date);
-        final parsedDate = formatter.parse(formattedDate);
-        
-        // ضبط الـ month mapping
-        final monthName = monthNames[parsedDate.month - 1];
-        final monthKey = '${monthName}_${parsedDate.year}';
+        // Use the already correctly parsed date directly (no re-parsing needed)
+        final entryDate = entry.date;
+        final monthName = monthNames[entryDate.month - 1];
+        final monthKey = '${monthName}_${entryDate.year}';
         incomeByMonth.putIfAbsent(monthKey, () => []).add(entry);
         
         if (kDebugMode) {
           print('✅ RestoreService - Income entry: ${entry.name}');
-          print('   Original date: ${entry.date}');
-          print('   Formatted: $formattedDate');  
-          print('   Parsed date: $parsedDate');
-          print('   Month: ${parsedDate.month} -> $monthName');
+          print('   Entry date: $entryDate');
+          print('   Month: ${entryDate.month} -> $monthName');
+          print('   Year: ${entryDate.year}');
           print('   Storage key: $monthKey');
         }
       }
@@ -248,22 +243,17 @@ class RestoreService extends ChangeNotifier {
           'July', 'August', 'September', 'October', 'November', 'December'
         ];
         
-        // استخدم intl package للتأكد من parsing صحيح
-        final formatter = DateFormat('yyyy-MM-dd');
-        final formattedDate = formatter.format(entry.date);
-        final parsedDate = formatter.parse(formattedDate);
-        
-        // ضبط الـ month mapping
-        final monthName = monthNames[parsedDate.month - 1];
-        final monthKey = '${monthName}_${parsedDate.year}';
+        // Use the already correctly parsed date directly (no re-parsing needed)
+        final entryDate = entry.date;
+        final monthName = monthNames[entryDate.month - 1];
+        final monthKey = '${monthName}_${entryDate.year}';
         outcomeByMonth.putIfAbsent(monthKey, () => []).add(entry);
         
         if (kDebugMode) {
           print('✅ RestoreService - Outcome entry: ${entry.name}');
-          print('   Original date: ${entry.date}');
-          print('   Formatted: $formattedDate');  
-          print('   Parsed date: $parsedDate');
-          print('   Month: ${parsedDate.month} -> $monthName');
+          print('   Entry date: $entryDate');
+          print('   Month: ${entryDate.month} -> $monthName');
+          print('   Year: ${entryDate.year}');
           print('   Storage key: $monthKey');
         }
       }

@@ -89,7 +89,7 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
     // Validate input
     if (_descriptionController.text.trim().isEmpty || _amountInputController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in both description and amount')),
+        const SnackBar(content: Text('Please fill description and amount')),
       );
       return;
     }
