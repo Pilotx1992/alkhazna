@@ -393,6 +393,11 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
       key: Key(entry.id),
       direction: DismissDirection.endToStart,
       background: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        decoration: BoxDecoration(
+          color: Colors.red,
+          borderRadius: BorderRadius.circular(12),
+        ),
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
         child: const Icon(
@@ -407,7 +412,7 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
           builder: (BuildContext context) {
             return AlertDialog(
               title: const Text('Confirm Delete'),
-              content: const Text('Are you sure you want to delete this expense?'),
+              content: const Text('Are you sure delete this expense?'),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(false),
@@ -430,7 +435,7 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: const Color.fromARGB(255, 252, 252, 252),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Padding(
