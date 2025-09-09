@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:intl/intl.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:googleapis_auth/auth_io.dart';
 import 'package:http/http.dart' as http;
@@ -220,9 +221,25 @@ class RestoreService extends ChangeNotifier {
           'January', 'February', 'March', 'April', 'May', 'June',
           'July', 'August', 'September', 'October', 'November', 'December'
         ];
-        final monthName = monthNames[entry.date.month - 1];
-        final key = '${monthName}_${entry.date.year}';
-        incomeByMonth.putIfAbsent(key, () => []).add(entry);
+        
+        // استخدم intl package للتأكد من parsing صحيح
+        final formatter = DateFormat('yyyy-MM-dd');
+        final formattedDate = formatter.format(entry.date);
+        final parsedDate = formatter.parse(formattedDate);
+        
+        // ضبط الـ month mapping
+        final monthName = monthNames[parsedDate.month - 1];
+        final monthKey = '${monthName}_${parsedDate.year}';
+        incomeByMonth.putIfAbsent(monthKey, () => []).add(entry);
+        
+        if (kDebugMode) {
+          print('✅ RestoreService - Income entry: ${entry.name}');
+          print('   Original date: ${entry.date}');
+          print('   Formatted: $formattedDate');  
+          print('   Parsed date: $parsedDate');
+          print('   Month: ${parsedDate.month} -> $monthName');
+          print('   Storage key: $monthKey');
+        }
       }
 
       for (var entry in outcomeEntries) {
@@ -230,9 +247,25 @@ class RestoreService extends ChangeNotifier {
           'January', 'February', 'March', 'April', 'May', 'June',
           'July', 'August', 'September', 'October', 'November', 'December'
         ];
-        final monthName = monthNames[entry.date.month - 1];
-        final key = '${monthName}_${entry.date.year}';
-        outcomeByMonth.putIfAbsent(key, () => []).add(entry);
+        
+        // استخدم intl package للتأكد من parsing صحيح
+        final formatter = DateFormat('yyyy-MM-dd');
+        final formattedDate = formatter.format(entry.date);
+        final parsedDate = formatter.parse(formattedDate);
+        
+        // ضبط الـ month mapping
+        final monthName = monthNames[parsedDate.month - 1];
+        final monthKey = '${monthName}_${parsedDate.year}';
+        outcomeByMonth.putIfAbsent(monthKey, () => []).add(entry);
+        
+        if (kDebugMode) {
+          print('✅ RestoreService - Outcome entry: ${entry.name}');
+          print('   Original date: ${entry.date}');
+          print('   Formatted: $formattedDate');  
+          print('   Parsed date: $parsedDate');
+          print('   Month: ${parsedDate.month} -> $monthName');
+          print('   Storage key: $monthKey');
+        }
       }
 
       // Save grouped entries with merge (add to existing data)

@@ -5,6 +5,7 @@ import 'package:archive/archive.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:intl/intl.dart';
 import '../../models/backup_models.dart';
 import '../../models/drive_manifest_model.dart';
 import '../../models/income_entry.dart';
@@ -426,22 +427,40 @@ class DriveRestoreService extends ChangeNotifier {
       
       // Restore income entries
       final incomeEntries = (backupData['income_entries'] as List)
-          .map((entry) => IncomeEntry(
-                id: entry['id'],
-                name: entry['name'],
-                amount: entry['amount'].toDouble(),
-                date: DateTime.parse(entry['date']),
-              ))
+          .map((entry) {
+                if (kDebugMode) {
+                  print('DriveRestore - Parsing income entry: ${entry['name']} with date string: ${entry['date']}');
+                }
+                final parsedDate = DateTime.parse(entry['date']);
+                if (kDebugMode) {
+                  print('DriveRestore - Parsed date: $parsedDate (month: ${parsedDate.month})');
+                }
+                return IncomeEntry(
+                  id: entry['id'],
+                  name: entry['name'],
+                  amount: entry['amount'].toDouble(),
+                  date: parsedDate,
+                );
+              })
           .toList();
 
       // Restore outcome entries
       final outcomeEntries = (backupData['outcome_entries'] as List)
-          .map((entry) => OutcomeEntry(
-                id: entry['id'],
-                name: entry['name'],
-                amount: entry['amount'].toDouble(),
-                date: DateTime.parse(entry['date']),
-              ))
+          .map((entry) {
+                if (kDebugMode) {
+                  print('DriveRestore - Parsing outcome entry: ${entry['name']} with date string: ${entry['date']}');
+                }
+                final parsedDate = DateTime.parse(entry['date']);
+                if (kDebugMode) {
+                  print('DriveRestore - Parsed date: $parsedDate (month: ${parsedDate.month})');
+                }
+                return OutcomeEntry(
+                  id: entry['id'],
+                  name: entry['name'],
+                  amount: entry['amount'].toDouble(),
+                  date: parsedDate,
+                );
+              })
           .toList();
 
       // Group and save by month/year (this will merge with existing data if replaceExisting is false)
@@ -469,20 +488,50 @@ class DriveRestoreService extends ChangeNotifier {
       'July', 'August', 'September', 'October', 'November', 'December'
     ];
 
-    // Group income entries
+    // Group income entries using proper date formatting
     final incomeByMonth = <String, List<IncomeEntry>>{};
     for (final entry in incomeEntries) {
-      final monthName = monthNames[entry.date.month - 1];
-      final key = '${monthName}_${entry.date.year}';
-      incomeByMonth.putIfAbsent(key, () => []).add(entry);
+      // استخدم intl package للتأكد من parsing صحيح
+      final formatter = DateFormat('yyyy-MM-dd');
+      final formattedDate = formatter.format(entry.date);
+      final parsedDate = formatter.parse(formattedDate);
+      
+      // ضبط الـ month mapping
+      final monthName = monthNames[parsedDate.month - 1];
+      final monthKey = '${monthName}_${parsedDate.year}';
+      incomeByMonth.putIfAbsent(monthKey, () => []).add(entry);
+      
+      if (kDebugMode) {
+        print('✅ Income entry: ${entry.name}');
+        print('   Original date: ${entry.date}');
+        print('   Formatted: $formattedDate');  
+        print('   Parsed date: $parsedDate');
+        print('   Month: ${parsedDate.month} -> $monthName');
+        print('   Storage key: $monthKey');
+      }
     }
 
-    // Group outcome entries
+    // Group outcome entries using proper date formatting
     final outcomeByMonth = <String, List<OutcomeEntry>>{};
     for (final entry in outcomeEntries) {
-      final monthName = monthNames[entry.date.month - 1];
-      final key = '${monthName}_${entry.date.year}';
-      outcomeByMonth.putIfAbsent(key, () => []).add(entry);
+      // استخدم intl package للتأكد من parsing صحيح
+      final formatter = DateFormat('yyyy-MM-dd');
+      final formattedDate = formatter.format(entry.date);
+      final parsedDate = formatter.parse(formattedDate);
+      
+      // ضبط الـ month mapping
+      final monthName = monthNames[parsedDate.month - 1];
+      final monthKey = '${monthName}_${parsedDate.year}';
+      outcomeByMonth.putIfAbsent(monthKey, () => []).add(entry);
+      
+      if (kDebugMode) {
+        print('✅ Outcome entry: ${entry.name}');
+        print('   Original date: ${entry.date}');
+        print('   Formatted: $formattedDate');  
+        print('   Parsed date: $parsedDate');
+        print('   Month: ${parsedDate.month} -> $monthName');
+        print('   Storage key: $monthKey');
+      }
     }
 
     // Save grouped entries using full month names

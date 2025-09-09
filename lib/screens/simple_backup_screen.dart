@@ -1067,53 +1067,6 @@ class _SimpleBackupScreenState extends State<SimpleBackupScreen> {
         
         const SizedBox(height: 8),
         
-        // Restore button
-        Card(
-          child: ListTile(
-            leading: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.blue.shade100,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.restore, color: Colors.blue.shade700),
-            ),
-            title: const Text('Restore from backup'),
-            subtitle: Text(
-              _availableBackups.isEmpty 
-                  ? 'No backups available'
-                  : 'Restore your data from Google Drive'
-            ),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: _availableBackups.isEmpty ? null : _showRestoreDialog,
-          ),
-        ),
-        
-        const SizedBox(height: 8),
-        
-        // Manage backups button
-        Card(
-          child: ListTile(
-            leading: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.orange.shade100,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.folder_outlined, color: Colors.orange.shade700),
-            ),
-            title: const Text('Manage backups'),
-            subtitle: Text(
-              _availableBackups.isEmpty 
-                  ? 'No backups to manage'
-                  : '${_availableBackups.length} backup${_availableBackups.length == 1 ? '' : 's'} available'
-            ),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: _availableBackups.isEmpty ? null : _showManageBackupsDialog,
-          ),
-        ),
       ],
     );
   }

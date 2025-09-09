@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../models/backup_models.dart';
 import '../services/drive/drive_restore_service.dart';
@@ -53,7 +54,7 @@ class _RestoreProgressScreenState extends State<RestoreProgressScreen>
     ));
 
     _animationController.repeat(reverse: true);
-    _startRestore();
+    _checkAndStartRestore();
   }
 
   @override
@@ -61,6 +62,72 @@ class _RestoreProgressScreenState extends State<RestoreProgressScreen>
     _animationController.dispose();
     _stepAnimationController.dispose();
     super.dispose();
+  }
+
+  Future<void> _checkAndStartRestore() async {
+    // Check if there's an incomplete session that can be resumed
+    final canResume = await _canResumeRestore();
+    
+    if (canResume && mounted) {
+      _showResumeDialog();
+    } else {
+      _startRestore();
+    }
+  }
+
+  Future<bool> _canResumeRestore() async {
+    try {
+      // Check if there are cached chunks that can be resumed
+      final downloadProgress = _restoreService.getDownloadProgress();
+      return (downloadProgress['cached_chunks'] as int? ?? 0) > 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  void _showResumeDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Resume Restore'),
+        content: const Text('An incomplete restore was found. Would you like to resume it or start a new restore?'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _startFreshRestore();
+            },
+            child: const Text('Start Fresh'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _resumeRestore();
+            },
+            child: const Text('Resume'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _startFreshRestore() async {
+    // Clear cached chunks for fresh start
+    _restoreService.clearChunkCache();
+    await _startRestore();
+  }
+
+  Future<void> _resumeRestore() async {
+    final success = await _restoreService.resumeRestore();
+    
+    if (mounted) {
+      if (success) {
+        _stepAnimationController.forward();
+        _showCompletionDialog(true);
+      } else {
+        _showCompletionDialog(false);
+      }
+    }
   }
 
   Future<void> _startRestore() async {
@@ -128,6 +195,19 @@ class _RestoreProgressScreenState extends State<RestoreProgressScreen>
         listenable: _restoreService,
         builder: (context, child) {
           final progress = _restoreService.currentProgress;
+          
+          // 🔍 Enhanced Logging for Debugging
+          if (kDebugMode) {
+            print('📊 RestoreProgress Update:');
+            print('   Status: ${progress.status}');
+            print('   Percentage: ${progress.percentage.toInt()}%');
+            print('   Current Action: ${progress.currentAction}');
+            if (progress.status == RestoreStatus.downloading) {
+              final downloadInfo = _restoreService.getDownloadProgress();
+              print('   Cached Chunks: ${downloadInfo['cached_chunks'] ?? 0}');
+              print('   Cache Size: ${downloadInfo['cache_size_bytes'] ?? 0} bytes');
+            }
+          }
           
           return Padding(
             padding: const EdgeInsets.all(24),
@@ -215,12 +295,65 @@ class _RestoreProgressScreenState extends State<RestoreProgressScreen>
                   textAlign: TextAlign.center,
                 ),
 
+                const SizedBox(height: 16),
+
+                // 📊 Enhanced Progress Details
+                if (progress.status == RestoreStatus.downloading) ...[
+                  Builder(
+                    builder: (context) {
+                      final downloadInfo = _restoreService.getDownloadProgress();
+                      return Column(
+                        children: [
+                          Text(
+                            'Downloaded Chunks: ${downloadInfo['cached_chunks'] ?? 0}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          Text(
+                            'Cache Size: ${_formatBytes((downloadInfo['cache_size_bytes'] as int?) ?? 0)}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ] else if (progress.status == RestoreStatus.decrypting) ...[
+                  Text(
+                    '🔐 Decrypting and decompressing data...',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ] else if (progress.status == RestoreStatus.applying) ...[
+                  Text(
+                    '📝 Restoring data to your device...',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+
                 const SizedBox(height: 40),
 
                 // Action Buttons
                 if (progress.status == RestoreStatus.failed) ...[
                   ElevatedButton.icon(
-                    onPressed: _startRestore,
+                    onPressed: () async {
+                      // Try to resume first, if not possible, start fresh
+                      final canResume = await _canResumeRestore();
+                      if (canResume) {
+                        await _resumeRestore();
+                      } else {
+                        await _startFreshRestore();
+                      }
+                    },
                     icon: const Icon(Icons.refresh),
                     label: const Text('Retry'),
                     style: ElevatedButton.styleFrom(
@@ -454,5 +587,13 @@ class _RestoreProgressScreenState extends State<RestoreProgressScreen>
         ],
       ),
     );
+  }
+
+  /// Format bytes for display (matches BackupProgressScreen style)
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '${bytes} B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 }
