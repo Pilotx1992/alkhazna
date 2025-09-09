@@ -115,7 +115,6 @@ class _SimpleBackupScreenState extends State<SimpleBackupScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Back up your chats and media to Google Drive so you can restore them if you reinstall Alkhazna.'),
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(12),

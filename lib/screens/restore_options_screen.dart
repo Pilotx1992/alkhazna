@@ -187,7 +187,7 @@ class _RestoreOptionsScreenState extends State<RestoreOptionsScreen> {
       builder: (context) => AlertDialog(
         icon: const Icon(Icons.delete, size: 48, color: Colors.red),
         title: const Text('Delete Backup'),
-        content: Text('Are you sure you want to delete the backup from ${backup.createdAt.toString().split(' ')[0]}? This action cannot be undone.'),
+        content: Text('Are You Sure ${backup.createdAt.toString().split(' ')[0]}?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -426,24 +426,11 @@ class _RestoreOptionsScreenState extends State<RestoreOptionsScreen> {
                       ],
                     ),
                   ),
-                  PopupMenuButton<String>(
-                    onSelected: (value) {
-                      if (value == 'delete') {
-                        _deleteBackup(backupWithId);
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete, color: Colors.red),
-                            SizedBox(width: 8),
-                            Text('Delete'),
-                          ],
-                        ),
-                      ),
-                    ],
+                  IconButton(
+                    onPressed: () => _deleteBackup(backupWithId),
+                    icon: const Icon(Icons.delete),
+                    color: Colors.red,
+                    tooltip: 'Delete backup',
                   ),
                 ],
               ),
