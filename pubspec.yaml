@@ -21,24 +21,21 @@ dependencies:
   # logging: ^1.3.0 # This was in the user's pubspec, keeping it
   # path_provider is used by printing or if saving file locally, ensure it's here if not transitive
   path_provider: ^2.0.0 # Adding for completeness, printing might need it directly or transitively
-  encrypt: ^5.0.3
-  file_picker: ^8.0.7
-  permission_handler: ^12.0.1
-  pointycastle: ^3.9.1
-  archive: ^4.0.7
-  # Firebase dependencies for cloud backup
-  firebase_core: ^2.27.0
-  cloud_firestore: ^4.15.8
-  firebase_auth: ^4.17.8
-  firebase_storage: ^11.7.7
+  # Authentication
   google_sign_in: ^6.2.1
-  # google_api_availability removed (not used)
-  # Google Services dependency
-  firebase_messaging: ^14.7.10
-  # Performance and background processing
-  flutter_local_notifications: ^18.0.1
-  crypto: ^3.0.5
-  workmanager: ^0.9.0+3
+  http: ^0.13.6
+  # Backup system dependencies
+  googleapis: ^11.0.0
+  googleapis_auth: ^1.4.1
+  connectivity_plus: ^4.0.0
+  uuid: ^4.0.0
+  # Encryption dependencies
+  cryptography: ^2.5.0
+  flutter_secure_storage: ^9.0.0
+  convert: ^3.1.1
+  base32: ^2.1.3
+  # Compression
+  archive: ^3.4.10
 
 dev_dependencies:
   flutter_test:
@@ -63,7 +60,7 @@ flutter:
         # - asset: assets/fonts/NotoSansArabic-Bold.ttf
         #   weight: 700
 
-flutter_icons:
+flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
   image_path: "assets/icon/icon.png"

@@ -21,9 +21,23 @@
       "Bash(find:*)",
       "Bash(grep:*)",
       "Bash(dir \"C:\\Users\\X\\Desktop\\alkhazna\\assets\\icon\")",
-      "Bash(dart analyze:*)"
+      "Bash(dart analyze:*)",
+      "Bash(dir lib)",
+      "Bash(dir libservices)",
+      "Bash(dir:*)",
+      "Bash(rg:*)",
+      "Bash(mkdir:*)",
+      "Bash(git checkout:*)",
+      "Bash(del:*)",
+      "Bash(rd:*)",
+      "Bash(dart run:*)",
+      "Bash(dart:*)"
     ],
     "deny": [],
     "ask": []
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "input=$(cat); current_dir=$(echo \"$input\" | jq -r '.workspace.current_dir'); project_name=$(basename \"$current_dir\"); git_branch=$(git -C \"$current_dir\" rev-parse --abbrev-ref HEAD 2>/dev/null || echo \"no-git\"); model=$(echo \"$input\" | jq -r '.model.display_name'); printf \"%s [%s] | %s\" \"$project_name\" \"$git_branch\" \"$model\""
   }
 }

@@ -1,361 +1,353 @@
-
+import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
-
-import 'package:al_khazna/services/storage_service.dart';
-import 'package:encrypt/encrypt.dart' as encrypt;
-import 'package:archive/archive_io.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:googleapis_auth/auth_io.dart';
+import 'package:http/http.dart' as http;
 import 'package:hive/hive.dart';
-import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:pointycastle/key_derivators/api.dart';
-import 'package:pointycastle/key_derivators/pbkdf2.dart';
-import 'package:pointycastle/macs/hmac.dart';
-import 'package:pointycastle/digests/sha256.dart';
+import 'package:uuid/uuid.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:archive/archive.dart';
+import '../models/backup_models.dart';
+import 'storage_service.dart';
+import 'crypto_service.dart';
+import 'key_management_service.dart';
 
-class BackupService {
-  encrypt.Key _deriveKey(String password, Uint8List salt) {
-    final derivator = PBKDF2KeyDerivator(HMac(SHA256Digest(), 64))
-      ..init(Pbkdf2Parameters(salt, 1000, 32));
-    return encrypt.Key(
-        derivator.process(Uint8List.fromList(password.codeUnits)));
-  }
+class BackupService extends ChangeNotifier {
+  static final BackupService _instance = BackupService._internal();
+  factory BackupService() => _instance;
+  BackupService._internal();
 
-  Future<bool> createBackup(BuildContext context, {Function(String)? onProgress}) async {
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: [drive.DriveApi.driveFileScope],
+  );
+
+  drive.DriveApi? _driveApi;
+  BackupProgress _currentProgress = BackupProgress();
+  bool _isBackupInProgress = false;
+  
+  final CryptoService _cryptoService = CryptoService();
+  final KeyManagementService _keyManagementService = KeyManagementService();
+
+  BackupProgress get currentProgress => _currentProgress;
+  bool get isBackupInProgress => _isBackupInProgress;
+
+  // Initialize Google Drive API
+  Future<bool> initialize() async {
     try {
-      if (await _requestPermission()) {
-        onProgress?.call('Getting password...');
-        // ignore: use_build_context_synchronously
-        final password = await _getPasswordFromUser(context, 'Create Backup');
-        if (!context.mounted) return false;
-        if (password == null || password.isEmpty) return false;
+      final account = await _googleSignIn.signIn();
+      if (account == null) return false;
 
-        onProgress?.call('Collecting data files...');
-        final appDir = await getApplicationDocumentsDirectory();
-        final archive = Archive();
-        final dir = Directory(appDir.path);
-        final baseDirPath = dir.path;
-        final allFiles = dir.listSync(recursive: true).whereType<File>().toList();
-        
-        for (int i = 0; i < allFiles.length; i++) {
-          final entity = allFiles[i];
-          final relativePath = entity.path.substring(baseDirPath.length + 1);
-          archive.addFile(ArchiveFile(
-              relativePath, entity.lengthSync(), entity.readAsBytesSync()));
-          onProgress?.call('Processing files... ${i + 1}/${allFiles.length}');
-        }
-
-        onProgress?.call('Compressing data...');
-        final outputZip = ZipEncoder().encode(archive);
-
-        onProgress?.call('Encrypting backup...');
-        final salt = encrypt.IV.fromSecureRandom(8).bytes;
-        final key = _deriveKey(password, salt);
-        final iv = encrypt.IV.fromSecureRandom(16);
-
-        final encrypter = encrypt.Encrypter(encrypt.AES(key));
-        final encrypted = encrypter.encryptBytes(outputZip, iv: iv);
-
-        final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-        final fileName = 'alkhazna_backup_$timestamp.alk';
-
-        onProgress?.call('Saving backup file...');
-        final String? outputFile = await FilePicker.platform.saveFile(
-          dialogTitle: 'Save your backup file',
-          fileName: fileName,
-        );
-
-        if (outputFile != null) {
-          final file = File(outputFile);
-          await file.writeAsBytes(salt + iv.bytes + encrypted.bytes);
-          if (!context.mounted) return false;
-          onProgress?.call('Backup completed successfully!');
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Backup created successfully!\nSaved: ${file.path.split('\\').last}')),
-          );
-          return true;
-        }
-      }
-    } catch (e) {
-      if (!context.mounted) return false;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Backup failed: $e')),
-      );
-      return false;
-    }
-    return false;
-  }
-
-  Future<bool> restoreBackup(BuildContext context, {String? path, Function(String)? onProgress}) async {
-    try {
-      if (await _requestPermission()) {
-        String? backupFilePath = path;
-        if (backupFilePath == null) {
-          onProgress?.call('Selecting backup file...');
-          final result = await FilePicker.platform.pickFiles(
-            type: FileType.custom,
-            allowedExtensions: ['alk'],
-          );
-          if (result != null) {
-            backupFilePath = result.files.single.path!;
-          }
-        }
-
-        if (backupFilePath != null) {
-          if (!context.mounted) return false;
-          onProgress?.call('Getting password...');
-          final password =
-              await _getPasswordFromUser(context, 'Restore Backup');
-          if (password == null || password.isEmpty) return false;
-
-          onProgress?.call('Reading backup file...');
-          final file = File(backupFilePath);
-          final fileBytes = await file.readAsBytes();
-
-          final salt = fileBytes.sublist(0, 8);
-          final ivBytes = fileBytes.sublist(8, 24);
-          final encryptedBytes = fileBytes.sublist(24);
-
-          onProgress?.call('Decrypting backup...');
-          final key = _deriveKey(password, salt);
-          final iv = encrypt.IV(ivBytes);
-
-          final encrypter = encrypt.Encrypter(encrypt.AES(key));
-          final decryptedBytes =
-              encrypter.decryptBytes(encrypt.Encrypted(encryptedBytes), iv: iv);
-
-          onProgress?.call('Extracting backup contents...');
-          final archive = ZipDecoder().decodeBytes(decryptedBytes);
-
-          onProgress?.call('Verifying backup integrity...');
-          // Verify backup integrity in a temporary directory
-          final tempDir = await getTemporaryDirectory();
-          final tempRestorePath = '${tempDir.path}/restore_temp';
-          final tempRestoreDir = Directory(tempRestorePath);
-          if (tempRestoreDir.existsSync()) {
-            tempRestoreDir.deleteSync(recursive: true);
-          }
-          tempRestoreDir.createSync(recursive: true);
-
-          bool isValid = false;
-          final totalFiles = archive.files.where((f) => f.isFile).length;
-          int processedFiles = 0;
-          
-          for (final file in archive.files) {
-            if (file.isFile) {
-              final outputPath = '$tempRestorePath/${file.name}';
-              File(outputPath)
-                ..createSync(recursive: true)
-                ..writeAsBytesSync(file.content as List<int>);
-              if (file.name.contains(StorageService.incomeBoxName) ||
-                  file.name.contains(StorageService.outcomeBoxName)) {
-                isValid = true;
-              }
-              processedFiles++;
-              onProgress?.call('Verifying backup... $processedFiles/$totalFiles');
-            }
-          }
-
-          if (!isValid) {
-            if (!context.mounted) return false;
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content: Text(
-                      'Restore failed: Backup file is invalid or corrupted.')),
-            );
-            return false;
-          }
-
-          onProgress?.call('Backing up current data...');
-          // Backup current data before overwriting
-          final appDir = await getApplicationDocumentsDirectory();
-          final backupOfCurrentData =
-              '${tempDir.path}/current_data_backup.zip';
-          final archiveCurrent = Archive();
-          if(appDir.existsSync()){
-            final currentFiles = appDir.listSync(recursive: true).whereType<File>().toList();
-            for (int i = 0; i < currentFiles.length; i++) {
-              final entity = currentFiles[i];
-              final relativePath =
-                  entity.path.substring(appDir.path.length + 1);
-              archiveCurrent.addFile(ArchiveFile(relativePath,
-                  entity.lengthSync(), entity.readAsBytesSync()));
-              onProgress?.call('Backing up current data... ${i + 1}/${currentFiles.length}');
-            }
-            final zipEncoder = ZipEncoder();
-            final encodedArchive = zipEncoder.encode(archiveCurrent);
-            File(backupOfCurrentData).writeAsBytesSync(encodedArchive);
-          }
-
-          onProgress?.call('Preparing for restore...');
-          // Close Hive, clear data, and restore from temp
-          await Hive.close();
-          if(appDir.existsSync()){
-            appDir.deleteSync(recursive: true);
-          }
-          appDir.createSync(recursive: true);
-
-          onProgress?.call('Restoring data files...');
-          final restoreFiles = Directory(tempRestorePath).listSync(recursive: true).whereType<File>().toList();
-          for (int i = 0; i < restoreFiles.length; i++) {
-            final file = restoreFiles[i];
-            final relativePath = file.path.substring(tempRestorePath.length + 1);
-            final newPath = '${appDir.path}/$relativePath';
-            File(newPath).createSync(recursive: true);
-            file.copySync(newPath);
-            onProgress?.call('Restoring data files... ${i + 1}/${restoreFiles.length}');
-          }
-          
-          tempRestoreDir.deleteSync(recursive: true);
-          onProgress?.call('Restore completed successfully!');
-
-
-          // ignore: use_build_context_synchronously
-          await _showRestartDialog(context);
-          if (!context.mounted) return false;
-          return true;
-        }
-      }
-    } catch (e) {
-      if (!context.mounted) return false;
-      
-      // Try to rollback to the previously backed up current data
-      try {
-        final tempDir = await getTemporaryDirectory();
-        final backupOfCurrentData = '${tempDir.path}/current_data_backup.zip';
-        final backupFile = File(backupOfCurrentData);
-        
-        if (backupFile.existsSync()) {
-          final appDir = await getApplicationDocumentsDirectory();
-          
-          // Clear corrupted data
-          if (appDir.existsSync()) {
-            appDir.deleteSync(recursive: true);
-          }
-          appDir.createSync(recursive: true);
-          
-          // Restore from backup
-          final backupBytes = await backupFile.readAsBytes();
-          final archive = ZipDecoder().decodeBytes(backupBytes);
-          
-          for (final file in archive.files) {
-            if (file.isFile) {
-              final outputPath = '${appDir.path}/${file.name}';
-              File(outputPath)
-                ..createSync(recursive: true)
-                ..writeAsBytesSync(file.content as List<int>);
-            }
-          }
-          
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Restore failed: $e\nYour original data has been recovered.')),
-            );
-          }
-        } else {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Restore failed: $e\nWarning: Unable to recover original data.')),
-            );
-          }
-        }
-      } catch (rollbackError) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Restore failed: $e\nRollback failed: $rollbackError')),
-          );
-        }
-      }
-      
-      return false;
-    }
-    return false;
-  }
-
-  Future<String?> _getPasswordFromUser(BuildContext context, String title) async {
-    final passwordController = TextEditingController();
-    return await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: passwordController,
-          obscureText: true,
-          decoration: const InputDecoration(
-            labelText: 'Password',
-          ),
+      final authHeaders = await account.authHeaders;
+      final authenticateClient = authenticatedClient(
+        http.Client(),
+        AccessCredentials(
+          AccessToken('Bearer', authHeaders['authorization']!.substring(7), DateTime.now().add(Duration(hours: 1))),
+          null,
+          ['https://www.googleapis.com/auth/drive.file'],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(passwordController.text),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
+      );
+
+      _driveApi = drive.DriveApi(authenticateClient);
+      return true;
+    } catch (e) {
+      print('Failed to initialize Google Drive: $e');
+      return false;
+    }
   }
 
-  Future<void> _showRestartDialog(BuildContext context) async {
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: false, // user must tap button!
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Restore Complete'),
-          content: const SingleChildScrollView(
-            child: ListBody(
-              children: <Widget>[
-                Text('The restore process is complete.'),
-                Text('Please restart the application for the changes to take effect.'),
-              ],
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('OK'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
+  // Check network connectivity
+  Future<bool> _checkConnectivity() async {
+    final connectivityResult = await Connectivity().checkConnectivity();
+    return connectivityResult != ConnectivityResult.none;
+  }
+
+  // Create backup data
+  Future<Map<String, dynamic>> _createBackupData() async {
+    final storageService = StorageService();
+    final incomeEntries = await storageService.getAllIncomeEntries();
+    final outcomeEntries = await storageService.getAllOutcomeEntries();
+
+    return {
+      'version': '1.0',
+      'timestamp': DateTime.now().toIso8601String(),
+      'device_info': {
+        'platform': Platform.operatingSystem,
+        'version': Platform.operatingSystemVersion,
       },
-    );
+      'data': {
+        'income_entries': incomeEntries.map((e) => {
+          'id': e.id,
+          'name': e.name,
+          'amount': e.amount,
+          'date': e.date.toIso8601String(),
+        }).toList(),
+        'outcome_entries': outcomeEntries.map((e) => {
+          'id': e.id,
+          'name': e.name,
+          'amount': e.amount,
+          'date': e.date.toIso8601String(),
+        }).toList(),
+      },
+    };
   }
 
-  Future<bool> _requestPermission() async {
-    if (Platform.isAndroid) {
-      try {
-        // First try to request multiple permissions
-        Map<Permission, PermissionStatus> statuses = await [
-          Permission.storage,
-          Permission.manageExternalStorage,
-        ].request();
-        
-        // Check if any of the permissions were granted
-        bool hasStoragePermission = statuses[Permission.storage]?.isGranted == true || 
-                                   statuses[Permission.manageExternalStorage]?.isGranted == true;
-        
-        if (!hasStoragePermission) {
-          // If not granted, try to open app settings
-          openAppSettings();
-          return false;
-        }
-        
-        return hasStoragePermission;
-      } catch (e) {
-        // If permission check fails, still try to proceed
-        // Some emulators don't require explicit permissions
-        return true;
+  // Compress and encrypt data
+  Future<Map<String, dynamic>> _processData(Map<String, dynamic> data, String sessionId) async {
+    final jsonString = json.encode(data);
+    final originalBytes = utf8.encode(jsonString);
+    final originalSize = originalBytes.length;
+    
+    // Step 1: Compress the data using GZip
+    _updateProgress(35.0, BackupStatus.compressing, 'Compressing your data...');
+    final compressedBytes = _compressData(originalBytes);
+    final compressedSize = compressedBytes.length;
+    
+    // Calculate compression ratio for logging
+    final compressionRatio = (1 - (compressedSize / originalSize)) * 100;
+    print('Data compressed: ${originalSize} bytes -> ${compressedSize} bytes (${compressionRatio.toStringAsFixed(1)}% reduction)');
+    
+    // Step 2: Check if encryption is enabled
+    final isEncryptionEnabled = await _keyManagementService.isEncryptionEnabled();
+    
+    if (isEncryptionEnabled) {
+      _updateProgress(45.0, BackupStatus.compressing, 'Encrypting your data...');
+      
+      // Encrypt the compressed data
+      final encryptedData = await _cryptoService.encryptData(
+        compressedBytes,
+        sessionId,
+        'backup_data',
+      );
+      
+      return {
+        'compressed': true,
+        'encrypted': true,
+        'iv': encryptedData['iv'],
+        'tag': encryptedData['tag'],
+        'data': encryptedData['data'],
+        'original_size': originalSize,
+        'compressed_size': compressedSize,
+        'compression_ratio': compressionRatio,
+      };
+    } else {
+      // Return compressed but unencrypted data
+      return {
+        'compressed': true,
+        'encrypted': false,
+        'data': base64.encode(compressedBytes),
+        'original_size': originalSize,
+        'compressed_size': compressedSize,
+        'compression_ratio': compressionRatio,
+      };
+    }
+  }
+
+  // Compress data using GZip
+  Uint8List _compressData(Uint8List data) {
+    final gzipEncoder = GZipEncoder();
+    final compressed = gzipEncoder.encode(data);
+    return Uint8List.fromList(compressed ?? []);
+  }
+
+
+  // Upload to Google Drive
+  Future<String?> _uploadToDrive(Map<String, dynamic> processedData, String fileName) async {
+    if (_driveApi == null) return null;
+
+    try {
+      // Convert processed data to bytes for upload
+      final jsonString = json.encode(processedData);
+      final bytes = utf8.encode(jsonString);
+      final data = Uint8List.fromList(bytes);
+      
+      final driveFile = drive.File();
+      driveFile.name = fileName;
+      driveFile.parents = ['appDataFolder']; // Store in app's private folder
+
+      final media = drive.Media(Stream.fromIterable([data]), data.length);
+      
+      final result = await _driveApi!.files.create(
+        driveFile,
+        uploadMedia: media,
+      );
+
+      return result.id;
+    } catch (e) {
+      print('Upload to Drive failed: $e');
+      return null;
+    }
+  }
+
+  // Start backup process
+  Future<bool> startBackup() async {
+    if (_isBackupInProgress) return false;
+    
+    _isBackupInProgress = true;
+    _updateProgress(0.0, BackupStatus.preparing, 'Checking connectivity...');
+
+    try {
+      // Check connectivity
+      final isConnected = await _checkConnectivity();
+      if (!isConnected) {
+        _updateProgress(0.0, BackupStatus.failed, 'No internet connection', 
+            errorMessage: 'Please check your internet connection and try again.');
+        return false;
+      }
+
+      // Initialize Google Drive
+      _updateProgress(10.0, BackupStatus.preparing, 'Connecting to Google Drive...');
+      final initialized = await initialize();
+      if (!initialized) {
+        _updateProgress(0.0, BackupStatus.failed, 'Failed to connect to Google Drive',
+            errorMessage: 'Could not authenticate with Google Drive.');
+        return false;
+      }
+
+      // Create backup data
+      _updateProgress(25.0, BackupStatus.compressing, 'Preparing your data...');
+      final backupData = await _createBackupData();
+      final backupId = const Uuid().v4();
+      
+      // Process data (encrypt if enabled)
+      _updateProgress(40.0, BackupStatus.compressing, 'Processing data...');
+      final processedData = await _processData(backupData, backupId);
+
+      // Upload to Drive
+      _updateProgress(75.0, BackupStatus.uploading, 'Uploading to Google Drive...');
+      final fileName = 'alkhazna_backup_${DateTime.now().millisecondsSinceEpoch}.json';
+      
+      final driveFileId = await _uploadToDrive(processedData, fileName);
+      if (driveFileId == null) {
+        _updateProgress(0.0, BackupStatus.failed, 'Upload failed',
+            errorMessage: 'Failed to upload backup to Google Drive.');
+        return false;
+      }
+
+      // Save backup info
+      _updateProgress(95.0, BackupStatus.uploading, 'Finalizing backup...');
+      await _saveBackupInfo(backupId, driveFileId, processedData, backupData);
+
+      // Update settings
+      await _updateLastBackupTime();
+
+      _updateProgress(100.0, BackupStatus.completed, 'Backup completed successfully!');
+      return true;
+
+    } catch (e) {
+      _updateProgress(0.0, BackupStatus.failed, 'Backup failed',
+          errorMessage: e.toString());
+      return false;
+    } finally {
+      _isBackupInProgress = false;
+    }
+  }
+
+  // Update progress
+  void _updateProgress(double percentage, BackupStatus status, String action, {String? errorMessage}) {
+    _currentProgress = BackupProgress(
+      percentage: percentage,
+      status: status,
+      currentAction: action,
+      errorMessage: errorMessage,
+    );
+    notifyListeners();
+  }
+
+  // Save backup info to Hive
+  Future<void> _saveBackupInfo(String backupId, String driveFileId, Map<String, dynamic> processedData, Map<String, dynamic> originalData) async {
+    final box = await Hive.openBox<BackupInfo>('backup_info');
+    
+    // Calculate actual file size
+    final jsonString = json.encode(processedData);
+    final size = utf8.encode(jsonString).length;
+    
+    final backupInfo = BackupInfo(
+      id: backupId,
+      createdAt: DateTime.now(),
+      sizeBytes: size,
+      deviceName: Platform.operatingSystem,
+      driveFileId: driveFileId,
+      status: BackupStatus.completed,
+      incomeEntriesCount: (originalData['data']['income_entries'] as List).length,
+      outcomeEntriesCount: (originalData['data']['outcome_entries'] as List).length,
+      isEncrypted: processedData['encrypted'] ?? false,
+      encryptionIv: processedData['iv'],
+      encryptionTag: processedData['tag'],
+      isCompressed: processedData['compressed'] ?? false,
+      originalSize: processedData['original_size'],
+      compressedSize: processedData['compressed_size'],
+      compressionRatio: processedData['compression_ratio'],
+    );
+
+    await box.put(backupId, backupInfo);
+    
+    // Keep only the latest 10 backups
+    if (box.length > 10) {
+      final keys = box.keys.toList();
+      keys.sort();
+      for (int i = 0; i < keys.length - 10; i++) {
+        await box.delete(keys[i]);
       }
     }
-    return true;
+  }
+
+  // Update last backup time in settings
+  Future<void> _updateLastBackupTime() async {
+    final box = await Hive.openBox<BackupSettings>('backup_settings');
+    BackupSettings settings = box.get('settings', defaultValue: BackupSettings())!;
+    
+    settings.lastBackupTime = DateTime.now();
+    await box.put('settings', settings);
+  }
+
+  // Get all backups
+  Future<List<BackupInfo>> getAllBackups() async {
+    final box = await Hive.openBox<BackupInfo>('backup_info');
+    final backups = box.values.toList();
+    backups.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return backups;
+  }
+
+  // Cancel ongoing backup
+  Future<void> cancelBackup() async {
+    if (_isBackupInProgress) {
+      _updateProgress(_currentProgress.percentage, BackupStatus.cancelled, 'Backup cancelled');
+      _isBackupInProgress = false;
+    }
+  }
+
+  // Get backup settings
+  Future<BackupSettings> getBackupSettings() async {
+    final box = await Hive.openBox<BackupSettings>('backup_settings');
+    return box.get('settings', defaultValue: BackupSettings())!;
+  }
+
+  // Save backup settings
+  Future<void> saveBackupSettings(BackupSettings settings) async {
+    final box = await Hive.openBox<BackupSettings>('backup_settings');
+    await box.put('settings', settings);
+  }
+
+  // Delete backup from Drive and local storage
+  Future<bool> deleteBackup(String backupId) async {
+    try {
+      final box = await Hive.openBox<BackupInfo>('backup_info');
+      final backupInfo = box.get(backupId);
+      
+      if (backupInfo != null && _driveApi != null) {
+        // Delete from Google Drive
+        await _driveApi!.files.delete(backupInfo.driveFileId);
+        
+        // Delete from local storage
+        await box.delete(backupId);
+      }
+      
+      return true;
+    } catch (e) {
+      print('Failed to delete backup: $e');
+      return false;
+    }
   }
 }

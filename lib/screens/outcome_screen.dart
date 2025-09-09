@@ -344,6 +344,7 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
                     ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
                               Icons.receipt_long,

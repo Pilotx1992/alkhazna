@@ -1,14 +1,13 @@
-import 'package:firebase_auth/firebase_auth.dart';
-import 'login_screen.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'simple_login_screen.dart';
+import 'restore_options_screen.dart';
+import 'simple_backup_screen.dart';
 
 import "package:flutter/material.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
 import "month_page.dart";
-import "modern_backup_screen.dart";
 import "../services/storage_service.dart";
-import "../services/enhanced_backup_service.dart";
-import "../widgets/backup_status_widget.dart";
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -51,8 +50,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _selectedMonth = _months[DateTime.now().month - 1];
     _selectedYear = DateTime.now().year;
     _loadLastSelection();
-    // Ensure backup status is always up to date
-    EnhancedBackupService().initialize();
   }
 
   @override
@@ -65,8 +62,6 @@ class _HomeScreenState extends State<HomeScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _loadTotals();
-    // Optionally refresh backup status when dependencies change
-    EnhancedBackupService().initialize();
   }
 
   @override
@@ -93,12 +88,13 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadTotals() async {
     setState(() => _isTotalsLoading = true);
     try {
-      final allIncome = await _storageService.getAllIncomeEntries();
-      final allOutcome = await _storageService.getAllOutcomeEntries();
+      // Load data for the selected month and year
+      final monthIncomeEntries = await _storageService.getIncomeEntries(_selectedMonth, _selectedYear);
+      final monthOutcomeEntries = await _storageService.getOutcomeEntries(_selectedMonth, _selectedYear);
+      
       setState(() {
-        _totalIncome = allIncome.fold(0.0, (sum, entry) => sum + entry.amount);
-        _totalOutcome =
-            allOutcome.fold(0.0, (sum, entry) => sum + entry.amount);
+        _totalIncome = monthIncomeEntries.fold(0.0, (sum, entry) => sum + entry.amount);
+        _totalOutcome = monthOutcomeEntries.fold(0.0, (sum, entry) => sum + entry.amount);
         _isTotalsLoading = false;
       });
     } catch (e) {
@@ -195,6 +191,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           _selectedMonth = value;
                                         });
                                         _saveSelection();
+                                        _loadTotals(); // Reload totals when month changes
                                       }
                                     },
                                   ),
@@ -329,92 +326,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
             
-            const SizedBox(height: 32),
-            
-            // Data Backup Section
-            Card(
-              elevation: 2,
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  gradient: LinearGradient(
-                    colors: [
-                      colorScheme.surfaceContainer,
-                      colorScheme.surfaceContainer.withAlpha((255 * 0.8).round()),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withAlpha((255 * 0.05).round()),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            'Data Backup',
-                            style: theme.textTheme.titleLarge?.copyWith(
-                              color: colorScheme.onTertiaryContainer,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          BackupStatusWidget(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => const ModernBackupScreen()),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Keep your financial data safe',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onTertiaryContainer.withAlpha((255 * 0.8).round()),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const ModernBackupScreen(),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.backup),
-                              label: const Text('Backup & Restore'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: colorScheme.onTertiaryContainer,
-                                side: BorderSide(color: colorScheme.onTertiaryContainer),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            
-            const SizedBox(height: 32),
-            
           ],
         ),
       ),
@@ -435,15 +346,36 @@ class _HomeScreenState extends State<HomeScreen> {
           backgroundColor: colorScheme.surface,
           elevation: 0,
           actions: [
+            IconButton(
+              icon: const Icon(Icons.backup),
+              tooltip: 'Backup & Restore',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SimpleBackupScreen()),
+                );
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.cloud_download),
+              tooltip: 'Restore Options',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const RestoreOptionsScreen()),
+                );
+              },
+            ),
             const SizedBox(width: 8),
             IconButton(
               icon: const Icon(Icons.logout),
               tooltip: 'Sign Out',
               onPressed: () async {
-                await FirebaseAuth.instance.signOut();
+                final googleSignIn = GoogleSignIn();
+                await googleSignIn.signOut();
                 if (context.mounted) {
                   Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (context) => LoginScreen()),
+                    MaterialPageRoute(builder: (context) => const SimpleLoginScreen()),
                     (route) => false,
                   );
                 }

@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'screens/login_screen.dart';
+import 'screens/simple_login_screen.dart';
 import 'models/income_entry.dart';
 import 'models/outcome_entry.dart';
 import 'models/entry_list_adapters.dart';
-import 'services/enhanced_backup_service.dart';
-import 'services/background_backup_service.dart';
-import 'services/scheduled_backup_service.dart';
+import 'models/backup_models.dart';
 
 class AppTheme {
   static ThemeData get lightTheme {
@@ -134,19 +131,9 @@ class AppTheme {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase
-  try {
-    await Firebase.initializeApp();
-  } catch (e) {
-    debugPrint('Firebase initialization failed: $e');
-  }
+  // Firebase removed - using Google Drive API directly for backup
 
-  // Initialize scheduled backup service
-  try {
-    await ScheduledBackupService().initialize();
-  } catch (e) {
-    debugPrint('Scheduled backup service initialization failed: $e');
-  }
+  // Backup worker removed - using Drive backup service directly
 
   // Initialize Hive
   await Hive.initFlutter();
@@ -164,12 +151,19 @@ void main() async {
   if (!Hive.isAdapterRegistered(3)) {
     Hive.registerAdapter(OutcomeEntryListAdapter());
   }
+  if (!Hive.isAdapterRegistered(4)) {
+    Hive.registerAdapter(BackupInfoAdapter());
+  }
+  if (!Hive.isAdapterRegistered(5)) {
+    Hive.registerAdapter(BackupProgressAdapter());
+  }
+  if (!Hive.isAdapterRegistered(6)) {
+    Hive.registerAdapter(RestoreProgressAdapter());
+  }
+  if (!Hive.isAdapterRegistered(7)) {
+    Hive.registerAdapter(BackupSettingsAdapter());
+  }
 
-  // Initialize Enhanced Backup Service
-  await EnhancedBackupService().initialize();
-  
-  // Initialize Background Backup Service
-  await BackgroundBackupService().initialize();
 
   runApp(const AlKhaznaApp());
 }
@@ -182,8 +176,7 @@ class AlKhaznaApp extends StatelessWidget {
     return MaterialApp(
       title: 'Al Khazna',
       theme: AppTheme.lightTheme,
-      home: const LoginScreen(),
-      navigatorKey: NavigationService.navigatorKey,
+      home: const SimpleLoginScreen(),
       locale: const Locale('en', ''),
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
