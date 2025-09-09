@@ -1059,8 +1059,7 @@ class _SimpleBackupScreenState extends State<SimpleBackupScreen> {
               ),
               child: Icon(Icons.backup, color: Colors.green.shade700),
             ),
-            title: const Text('Back up to Google Drive'),
-            subtitle: const Text('Back up messages and media'),
+            title: const Text('Back up'),
             trailing: const Icon(Icons.chevron_right),
             onTap: _showBackupDialog,
           ),
@@ -1185,19 +1184,6 @@ class _SimpleBackupScreenState extends State<SimpleBackupScreen> {
         ),
         
         const SizedBox(height: 16),
-        
-        // Info text
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            'Backups are encrypted and stored securely in your Google Drive. Media and messages are included in backups.',
-            style: TextStyle(
-              fontSize: 14,
-              color: colorScheme.onSurfaceVariant,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ),
       ],
     );
   }

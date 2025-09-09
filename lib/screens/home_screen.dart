@@ -42,6 +42,10 @@ class _HomeScreenState extends State<HomeScreen> {
   double _totalOutcome = 0;
   bool _isTotalsLoading = true;
   
+  // Overall totals across all months
+  double _overallTotalIncome = 0;
+  double _overallTotalOutcome = 0;
+  
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -92,9 +96,17 @@ class _HomeScreenState extends State<HomeScreen> {
       final monthIncomeEntries = await _storageService.getIncomeEntries(_selectedMonth, _selectedYear);
       final monthOutcomeEntries = await _storageService.getOutcomeEntries(_selectedMonth, _selectedYear);
       
+      // Load overall totals across all months
+      final allIncomeEntries = await _storageService.getAllIncomeEntries();
+      final allOutcomeEntries = await _storageService.getAllOutcomeEntries();
+      
       setState(() {
         _totalIncome = monthIncomeEntries.fold(0.0, (sum, entry) => sum + entry.amount);
         _totalOutcome = monthOutcomeEntries.fold(0.0, (sum, entry) => sum + entry.amount);
+        
+        _overallTotalIncome = allIncomeEntries.fold(0.0, (sum, entry) => sum + entry.amount);
+        _overallTotalOutcome = allOutcomeEntries.fold(0.0, (sum, entry) => sum + entry.amount);
+        
         _isTotalsLoading = false;
       });
     } catch (e) {
@@ -275,17 +287,17 @@ class _HomeScreenState extends State<HomeScreen> {
             
             const SizedBox(height: 24),
             
-            // Total Balance Card - Matching HomeScreen.jpg design
+            // Overall Balance Card (All Months)
             _isTotalsLoading
                 ? const Center(child: CircularProgressIndicator())
                 : Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(32),
+                    padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
+                      gradient: LinearGradient(
                         colors: [
-                          Color(0xFF4CAF50), // Material Green 500
-                          Color(0xFF81C784), // Material Green 300
+                          Colors.indigo.shade600,
+                          Colors.indigo.shade400,
                         ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
@@ -293,7 +305,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF4CAF50).withAlpha((255 * 0.3).round()),
+                          color: Colors.indigo.withAlpha((255 * 0.3).round()),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),
@@ -301,30 +313,190 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     child: Column(
                       children: [
-                        Text(
-                          'Total Balance',
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.account_balance_wallet,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Total Balance',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
                         Text(
-                          (_totalIncome - _totalOutcome)
+                          (_overallTotalIncome - _overallTotalOutcome)
                               .toStringAsFixed(0)
                               .replaceAllMapped(
                                 RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
                                 (Match m) => '${m[1]},',
                               ),
-                          style: theme.textTheme.displayMedium?.copyWith(
+                          style: theme.textTheme.displaySmall?.copyWith(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
-                            fontSize: 48,
+                            fontSize: 32,
                           ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            Column(
+                              children: [
+                                Text(
+                                  'Total Income',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.8),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Text(
+                                  _overallTotalIncome
+                                      .toStringAsFixed(0)
+                                      .replaceAllMapped(
+                                        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+                                        (Match m) => '${m[1]},',
+                                      ),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Container(
+                              height: 30,
+                              width: 1,
+                              color: Colors.white.withValues(alpha: 0.3),
+                            ),
+                            Column(
+                              children: [
+                                Text(
+                                  'Total Outcome',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.8),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Text(
+                                  _overallTotalOutcome
+                                      .toStringAsFixed(0)
+                                      .replaceAllMapped(
+                                        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+                                        (Match m) => '${m[1]},',
+                                      ),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
+            
+            const SizedBox(height: 16),
+            
+            // Backup Section
+            Card(
+              elevation: 2,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: LinearGradient(
+                    colors: [
+                      colorScheme.surfaceContainer,
+                      colorScheme.surfaceContainer.withAlpha((255 * 0.8).round()),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha((255 * 0.05).round()),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Backup & Restore',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          // Backup Button
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => const SimpleBackupScreen()),
+                                );
+                              },
+                              icon: const Icon(Icons.backup, size: 20),
+                              label: const Text('Backup'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: colorScheme.primary,
+                                foregroundColor: colorScheme.onPrimary,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Restore Button
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => const RestoreOptionsScreen()),
+                                );
+                              },
+                              icon: const Icon(Icons.cloud_download, size: 20),
+                              label: const Text('Restore'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: colorScheme.secondary,
+                                foregroundColor: colorScheme.onSecondary,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            
             
           ],
         ),
@@ -346,27 +518,6 @@ class _HomeScreenState extends State<HomeScreen> {
           backgroundColor: colorScheme.surface,
           elevation: 0,
           actions: [
-            IconButton(
-              icon: const Icon(Icons.backup),
-              tooltip: 'Backup & Restore',
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const SimpleBackupScreen()),
-                );
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.cloud_download),
-              tooltip: 'Restore Options',
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const RestoreOptionsScreen()),
-                );
-              },
-            ),
-            const SizedBox(width: 8),
             IconButton(
               icon: const Icon(Icons.logout),
               tooltip: 'Sign Out',
