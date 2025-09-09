@@ -87,7 +87,7 @@ class _IncomeScreenState extends State<IncomeScreen> {
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       name: '',
       amount: 0,
-      date: DateTime.now(),
+      date: DateTime(widget.year, _getMonthNumber(widget.month), 1),
     );
 
     setState(() {
@@ -140,7 +140,7 @@ class _IncomeScreenState extends State<IncomeScreen> {
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       name: '',
       amount: 0,
-      date: DateTime.now(),
+      date: DateTime(widget.year, _getMonthNumber(widget.month), 1),
     );
 
     setState(() {
@@ -202,7 +202,7 @@ class _IncomeScreenState extends State<IncomeScreen> {
                   i.toString(),
               name: prevEntries[i].name,
               amount: 0, // Copy names only, not amounts
-              date: DateTime.now(),
+              date: DateTime(widget.year, _getMonthNumber(widget.month), 1),
             );
             _incomeEntries.add(newEntry);
           }
@@ -214,7 +214,7 @@ class _IncomeScreenState extends State<IncomeScreen> {
                   (prevEntries.length + i).toString(),
               name: '',
               amount: 0,
-              date: DateTime.now(),
+              date: DateTime(widget.year, _getMonthNumber(widget.month), 1),
             );
             _incomeEntries.add(newEntry);
           }
@@ -533,6 +533,15 @@ class _IncomeScreenState extends State<IncomeScreen> {
         },
       ),
     );
+  }
+
+  int _getMonthNumber(String monthName) {
+    const monthMap = {
+      'January': 1, 'February': 2, 'March': 3, 'April': 4,
+      'May': 5, 'June': 6, 'July': 7, 'August': 8,
+      'September': 9, 'October': 10, 'November': 11, 'December': 12
+    };
+    return monthMap[monthName] ?? 1;
   }
 
   @override

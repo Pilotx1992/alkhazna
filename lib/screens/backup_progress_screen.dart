@@ -130,7 +130,7 @@ class _BackupProgressScreenState extends State<BackupProgressScreen>
         title: Text(success ? 'Backup Completed' : 'Backup Failed'),
         content: Text(
           success 
-              ? 'Your data has been successfully backed up to Google Drive.'
+              ? 'Backup Complete'
               : _backupService.currentProgress.errorMessage ?? 'An unknown error occurred.',
         ),
         actions: [

@@ -24,7 +24,7 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
   final Map<String, TextEditingController> _amountControllers = {};
   final Map<String, TextEditingController> _nameControllers = {};
   final Map<String, TextEditingController> _dateControllers = {};
-  DateTime _selectedDate = DateTime.now();
+  late DateTime _selectedDate;
   
   // Controllers for the input form
   final TextEditingController _descriptionController = TextEditingController();
@@ -33,6 +33,7 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedDate = DateTime(widget.year, _getMonthNumber(widget.month), 1);
     _loadEntries();
   }
 
@@ -506,6 +507,15 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
         ),
       ),
     );
+  }
+
+  int _getMonthNumber(String monthName) {
+    const monthMap = {
+      'January': 1, 'February': 2, 'March': 3, 'April': 4,
+      'May': 5, 'June': 6, 'July': 7, 'August': 8,
+      'September': 9, 'October': 10, 'November': 11, 'December': 12
+    };
+    return monthMap[monthName] ?? 1;
   }
 
   @override
