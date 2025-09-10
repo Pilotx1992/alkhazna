@@ -209,234 +209,271 @@ class _RestoreProgressScreenState extends State<RestoreProgressScreen>
             }
           }
           
-          return Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              children: [
-                // Progress Steps
-                _buildProgressSteps(progress, colorScheme),
-                
-                const SizedBox(height: 40),
+          return SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Progress Steps
+                  _buildProgressSteps(progress, colorScheme),
+                  
+                  const SizedBox(height: 40),
 
-                // Main Progress Circle
-                AnimatedBuilder(
-                  animation: _pulseAnimation,
-                  builder: (context, child) {
-                    return Transform.scale(
-                      scale: progress.status == RestoreStatus.completed 
-                          ? 1.0 
-                          : _pulseAnimation.value,
-                      child: Container(
-                        width: 180,
-                        height: 180,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            colors: _getProgressColors(progress.status),
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: _getProgressColors(progress.status)[0].withValues(alpha: 0.3),
-                              blurRadius: 20,
-                              spreadRadius: 5,
+                  // Main Progress Circle
+                  AnimatedBuilder(
+                    animation: _pulseAnimation,
+                    builder: (context, child) {
+                      return Transform.scale(
+                        scale: progress.status == RestoreStatus.completed 
+                            ? 1.0 
+                            : _pulseAnimation.value,
+                        child: Container(
+                          width: 180,
+                          height: 180,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              colors: _getProgressColors(progress.status),
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
                             ),
-                          ],
-                        ),
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            SizedBox(
-                              width: 140,
-                              height: 140,
-                              child: CircularProgressIndicator(
-                                value: progress.percentage / 100,
-                                strokeWidth: 6,
-                                backgroundColor: Colors.white.withValues(alpha: 0.3),
-                                valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                            boxShadow: [
+                              BoxShadow(
+                                color: _getProgressColors(progress.status)[0].withValues(alpha: 0.3),
+                                blurRadius: 20,
+                                spreadRadius: 5,
                               ),
-                            ),
-                            Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  '${progress.percentage.toInt()}%',
-                                  style: const TextStyle(
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
+                            ],
+                          ),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              SizedBox(
+                                width: 140,
+                                height: 140,
+                                child: CircularProgressIndicator(
+                                  value: progress.percentage / 100,
+                                  strokeWidth: 6,
+                                  backgroundColor: Colors.white.withValues(alpha: 0.3),
+                                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              ),
+                              Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    '${progress.percentage.toInt()}%',
+                                    style: const TextStyle(
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
                                   ),
-                                ),
-                                Icon(
-                                  _getStatusIcon(progress.status),
-                                  color: Colors.white,
-                                  size: 28,
-                                ),
-                              ],
-                            ),
-                          ],
+                                  Icon(
+                                    _getStatusIcon(progress.status),
+                                    color: Colors.white,
+                                    size: 28,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                ),
-
-                const SizedBox(height: 30),
-
-                // Current Status
-                Text(
-                  progress.statusDisplayText,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: colorScheme.onSurface,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-
-                const SizedBox(height: 16),
-
-                // 📊 Enhanced Progress Details
-                if (progress.status == RestoreStatus.downloading) ...[
-                  Builder(
-                    builder: (context) {
-                      final downloadInfo = _restoreService.getDownloadProgress();
-                      return Column(
-                        children: [
-                          Text(
-                            'Downloaded Chunks: ${downloadInfo['cached_chunks'] ?? 0}',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                          Text(
-                            'Cache Size: ${_formatBytes((downloadInfo['cache_size_bytes'] as int?) ?? 0)}',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
                       );
                     },
                   ),
-                ] else if (progress.status == RestoreStatus.decrypting) ...[
+
+                  const SizedBox(height: 30),
+
+                  // Current Status
                   Text(
-                    '🔐 Decrypting and decompressing data...',
+                    progress.statusDisplayText,
                     style: TextStyle(
-                      fontSize: 14,
-                      color: colorScheme.onSurfaceVariant,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: colorScheme.onSurface,
                     ),
+                    textAlign: TextAlign.center,
                   ),
-                ] else if (progress.status == RestoreStatus.applying) ...[
-                  Text(
-                    '📝 Restoring data to your device...',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
 
-                const SizedBox(height: 40),
+                  const SizedBox(height: 16),
 
-                // Action Buttons
-                if (progress.status == RestoreStatus.failed) ...[
-                  ElevatedButton.icon(
-                    onPressed: () async {
-                      // Try to resume first, if not possible, start fresh
-                      final canResume = await _canResumeRestore();
-                      if (canResume) {
-                        await _resumeRestore();
-                      } else {
-                        await _startFreshRestore();
-                      }
-                    },
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Retry'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: colorScheme.primary,
-                      foregroundColor: colorScheme.onPrimary,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  // 📊 Enhanced Progress Details
+                  if (progress.status == RestoreStatus.downloading) ...[
+                    Builder(
+                      builder: (context) {
+                        final downloadInfo = _restoreService.getDownloadProgress();
+                        return Column(
+                          children: [
+                            Text(
+                              'Downloaded Chunks: ${downloadInfo['cached_chunks'] ?? 0}',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            Text(
+                              'Cache Size: ${_formatBytes((downloadInfo['cache_size_bytes'] as int?) ?? 0)}',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Cancel'),
-                  ),
-                ] else if (progress.status != RestoreStatus.completed && 
-                          progress.status != RestoreStatus.cancelled) ...[
-                  OutlinedButton.icon(
-                    onPressed: () => _cancelRestore(),
-                    icon: const Icon(Icons.cancel),
-                    label: const Text('Cancel'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: colorScheme.error,
-                      side: BorderSide(color: colorScheme.error),
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ] else if (progress.status == RestoreStatus.decrypting) ...[
+                    Text(
+                      '🔐 Decrypting and decompressing data...',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
-                ],
+                  ] else if (progress.status == RestoreStatus.applying) ...[
+                    Text(
+                      '📝 Restoring data to your device...',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
 
-                const Spacer(),
+                  const SizedBox(height: 40),
 
-                // Warning Message
-                if (progress.status == RestoreStatus.downloading ||
-                    progress.status == RestoreStatus.decrypting ||
-                    progress.status == RestoreStatus.applying) ...[
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.orange.shade200),
-                    ),
-                    child: const Row(
+                  // Action Buttons
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
                       children: [
-                        Icon(Icons.info, color: Colors.orange, size: 20),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Do not close the app during restoration. Your data is being processed.',
-                            style: TextStyle(color: Colors.orange, fontSize: 12),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-
-                // Error Message
-                if (progress.errorMessage != null) ...[
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: colorScheme.errorContainer,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.error,
-                          color: colorScheme.onErrorContainer,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            progress.errorMessage!,
-                            style: TextStyle(
-                              color: colorScheme.onErrorContainer,
+                        if (progress.status == RestoreStatus.failed) ...[
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () async {
+                                final canResume = await _canResumeRestore();
+                                if (canResume) {
+                                  await _resumeRestore();
+                                } else {
+                                  await _startFreshRestore();
+                                }
+                              },
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Retry'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: colorScheme.primary,
+                                foregroundColor: colorScheme.onPrimary,
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              ),
                             ),
                           ),
-                        ),
+                          const SizedBox(height: 12),
+                          if (progress.errorMessage?.contains('decryption') == true ||
+                              progress.errorMessage?.contains('SecretBox') == true ||
+                              progress.errorMessage?.contains('master key') == true) ...[
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: () => _showResetKeysDialog(),
+                                icon: const Icon(Icons.key_off),
+                                label: const Text('Reset Keys & Retry'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.orange,
+                                  side: const BorderSide(color: Colors.orange),
+                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+                          SizedBox(
+                            width: double.infinity,
+                            child: TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Cancel'),
+                            ),
+                          ),
+                        ] else if (progress.status != RestoreStatus.completed && 
+                                  progress.status != RestoreStatus.cancelled) ...[
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: () => _cancelRestore(),
+                              icon: const Icon(Icons.cancel),
+                              label: const Text('Cancel'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: colorScheme.error,
+                                side: BorderSide(color: colorScheme.error),
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
+
+                  const SizedBox(height: 32),
+
+                  // Warning Message
+                  if (progress.status == RestoreStatus.downloading ||
+                      progress.status == RestoreStatus.decrypting ||
+                      progress.status == RestoreStatus.applying) ...[
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.orange.shade200),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.info, color: Colors.orange, size: 20),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Do not close the app during restoration. Your data is being processed.',
+                              style: TextStyle(color: Colors.orange, fontSize: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Error Message
+                  if (progress.errorMessage != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: colorScheme.errorContainer,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.error,
+                            color: colorScheme.onErrorContainer,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              progress.errorMessage!,
+                              style: TextStyle(
+                                color: colorScheme.onErrorContainer,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           );
         },
@@ -582,6 +619,37 @@ class _RestoreProgressScreenState extends State<RestoreProgressScreen>
             child: Text(
               'Cancel',
               style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showResetKeysDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reset Encryption Keys'),
+        content: const Text('This will reset your encryption keys and clear the cache. Only do this if the restore is consistently failing due to decryption errors.\n\nWarning: This may prevent restoring backups made with the old keys.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(context).pop(); // Close dialog
+              
+              // Reset keys and try again
+              await _restoreService.resetMasterKeyAndRetry();
+              
+              // Start fresh restore
+              await _startFreshRestore();
+            },
+            child: Text(
+              'Reset & Retry',
+              style: TextStyle(color: Colors.orange),
             ),
           ),
         ],

@@ -85,7 +85,14 @@ class DriveRestoreService extends ChangeNotifier {
       _updateProgress(25.0, RestoreStatus.downloading, 'Processing backup files...');
       final restoredFiles = await _downloadAndDecryptFiles(manifest, masterKey);
       if (restoredFiles.isEmpty) {
-        _updateProgress(0.0, RestoreStatus.failed, 'No files were restored');
+        String errorMsg = 'No files were restored';
+        
+        // Try to provide more specific error information
+        if (_downloadedChunks.isNotEmpty) {
+          errorMsg = 'Downloaded ${_downloadedChunks.length} chunks but decryption failed. Please check your master key.';
+        }
+        
+        _updateProgress(0.0, RestoreStatus.failed, errorMsg);
         return false;
       }
 
@@ -195,6 +202,20 @@ class DriveRestoreService extends ChangeNotifier {
         print('Failed to get master key: $e');
       }
       return null;
+    }
+  }
+
+  /// Reset master key and try again (last resort)
+  Future<void> resetMasterKeyAndRetry() async {
+    if (kDebugMode) {
+      print('🔄 Attempting to reset master key as last resort...');
+    }
+    
+    await _cryptoService.resetEncryption();
+    clearChunkCache();
+    
+    if (kDebugMode) {
+      print('✅ Master key reset completed. Cache cleared.');
     }
   }
 
@@ -339,6 +360,15 @@ class DriveRestoreService extends ChangeNotifier {
           'tag': chunk.tag,
         };
         
+        if (kDebugMode) {
+          print('🔓 Attempting to decrypt chunk ${chunk.seq} for file $fileId');
+          print('   SessionId: $sessionId');
+          print('   FileId for AAD: ${fileId}_${chunk.seq}');
+          print('   IV: ${chunk.iv}');
+          print('   Tag: ${chunk.tag}');
+          print('   Data length: ${encryptedData.length}');
+        }
+        
         final decryptedData = await _cryptoService.decryptData(
           encryptedDataMap,
           sessionId,
@@ -352,15 +382,30 @@ class DriveRestoreService extends ChangeNotifier {
         
       } catch (e) {
         attempt++;
+        if (kDebugMode) {
+          print('❌ Attempt $attempt failed for chunk ${chunk.seq}: $e');
+          if (e.toString().contains('SecretBox')) {
+            print('   This is a decryption error - the chunk data or keys may be corrupted');
+            print('   Trying to recover by clearing chunk cache and re-downloading...');
+            
+            // Remove this chunk from cache if it exists
+            final chunkKey = '${fileId}_${chunk.seq}';
+            _downloadedChunks.remove(chunkKey);
+          }
+        }
+        
         if (attempt >= downloadRetryCount) {
           if (kDebugMode) {
-            print('Failed to download chunk ${chunk.seq} after $downloadRetryCount attempts: $e');
+            print('💥 Failed to download chunk ${chunk.seq} after $downloadRetryCount attempts: $e');
           }
           return null;
         }
         
         // Wait before retry with exponential backoff
         final delay = 1000 * pow(2, attempt - 1).round();
+        if (kDebugMode) {
+          print('⏳ Waiting ${delay}ms before retry attempt ${attempt + 1}');
+        }
         await Future.delayed(Duration(milliseconds: delay));
       }
     }
