@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 import 'package:convert/convert.dart';
 import 'package:cryptography/cryptography.dart';
@@ -19,6 +20,8 @@ class BackupKeyManager {
     scopes: [
       'https://www.googleapis.com/auth/drive.file',
       'https://www.googleapis.com/auth/drive.appdata',  // Required for app data folder access
+      'email',  // Required for user identification
+      'profile',  // Required for account verification
     ],
   );
   final CryptoService _cryptoService = CryptoService();
@@ -227,6 +230,64 @@ class BackupKeyManager {
     }
   }
   
+  /// Get or create persistent master key (WhatsApp-style)
+  /// This ensures we always use the same key for a user account
+  Future<Uint8List?> getOrCreatePersistentMasterKey(String userEmail) async {
+    try {
+      if (kDebugMode) {
+        print('🔑 Getting or creating persistent master key for: $userEmail');
+      }
+      
+      // Step 1: Try to retrieve existing key from cloud
+      final existingKey = await retrieveKeysFromCloud(userEmail);
+      if (existingKey != null) {
+        if (kDebugMode) {
+          print('✅ Found existing master key in cloud');
+        }
+        return existingKey;
+      }
+      
+      if (kDebugMode) {
+        print('🆕 No existing key found, creating new persistent master key');
+      }
+      
+      // Step 2: Generate new master key
+      final newKey = await _generateSecureMasterKey();
+      
+      // Step 3: Save to cloud immediately
+      final saved = await saveKeysToCloud(userEmail, newKey);
+      if (!saved) {
+        if (kDebugMode) {
+          print('❌ Failed to save new master key to cloud');
+        }
+        return null;
+      }
+      
+      if (kDebugMode) {
+        print('✅ New persistent master key created and saved to cloud');
+      }
+      
+      return newKey;
+      
+    } catch (e) {
+      if (kDebugMode) {
+        print('💥 Error getting/creating persistent master key: $e');
+      }
+      return null;
+    }
+  }
+  
+  /// Generate a cryptographically secure master key
+  Future<Uint8List> _generateSecureMasterKey() async {
+    // Generate 32 bytes (256 bits) for AES-256
+    final random = Random.secure();
+    final key = Uint8List(32);
+    for (int i = 0; i < 32; i++) {
+      key[i] = random.nextInt(256);
+    }
+    return key;
+  }
+  
   /// Delete backup keys from the cloud
   Future<bool> deleteCloudKeys() async {
     try {
@@ -372,29 +433,68 @@ class BackupKeyManager {
   /// Retrieve encrypted key data from Google Drive app data folder
   Future<Map<String, String>?> _retrieveFromAppDataFolder() async {
     try {
-      // Find the key file in app data folder
-      final files = await _driveProvider.queryFiles(
-        "name='$_keyFileName' and parents in 'appDataFolder'"
-      );
+      if (kDebugMode) {
+        print('🔍 Searching for key file in app data folder...');
+      }
       
-      if (files.isEmpty) {
-        return null; // No key file found
+      // Multiple search strategies to ensure we find the file
+      final searchQueries = [
+        "name='$_keyFileName' and parents in 'appDataFolder' and trashed=false",
+        "'appDataFolder' in parents and name='$_keyFileName' and trashed=false",
+        "parents in 'appDataFolder' and name contains 'alkhazna_backup_keys'",
+        "name='$_keyFileName'"  // Fallback - search everywhere
+      ];
+      
+      Map<String, dynamic>? foundFile;
+      for (final query in searchQueries) {
+        if (kDebugMode) {
+          print('🔍 Trying query: $query');
+        }
+        
+        final files = await _driveProvider.queryFiles(query);
+        if (files.isNotEmpty) {
+          foundFile = files.first;
+          if (kDebugMode) {
+            print('✅ Found key file with query: $query');
+            print('   File ID: ${foundFile['id']}');
+            print('   File Name: ${foundFile['name']}');
+            print('   Parents: ${foundFile['parents']}');
+          }
+          break;
+        }
+      }
+      
+      if (foundFile == null) {
+        if (kDebugMode) {
+          print('❌ No key file found with any search query');
+        }
+        return null;
       }
       
       // Download the file content
-      final fileId = files.first['id'] as String;
+      final fileId = foundFile['id'] as String;
+      if (kDebugMode) {
+        print('📥 Downloading key file: $fileId');
+      }
+      
       final fileBytes = await _driveProvider.downloadFileBytes(fileId);
       
       // Parse the JSON data
       final dataJson = utf8.decode(fileBytes);
       final encryptedData = json.decode(dataJson) as Map<String, dynamic>;
       
+      if (kDebugMode) {
+        print('✅ Successfully retrieved and parsed key file');
+        print('   Data keys: ${encryptedData.keys.toList()}');
+      }
+      
       // Convert to Map<String, String>
       return encryptedData.map((key, value) => MapEntry(key, value.toString()));
       
     } catch (e) {
       if (kDebugMode) {
-        print('Error retrieving from app data folder: $e');
+        print('💥 Error retrieving from app data folder: $e');
+        print('   Stack trace: ${StackTrace.current}');
       }
       return null;
     }
@@ -447,7 +547,7 @@ class BackupKeyManager {
         }
         
         if (kDebugMode) {
-          print('✅ Google authentication successful: ${account.email}');
+          print('✅ Google authentication successful: ${account?.email}');
         }
         return account;
       } else {

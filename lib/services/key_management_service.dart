@@ -1,7 +1,10 @@
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive/hive.dart';
 import 'crypto_service.dart';
+import 'backup_key_manager.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class KeyManagementService extends ChangeNotifier {
   static final KeyManagementService _instance = KeyManagementService._internal();
@@ -9,6 +12,15 @@ class KeyManagementService extends ChangeNotifier {
   KeyManagementService._internal();
 
   final CryptoService _cryptoService = CryptoService();
+  final BackupKeyManager _backupKeyManager = BackupKeyManager();
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: [
+      'https://www.googleapis.com/auth/drive.file',
+      'https://www.googleapis.com/auth/drive.appdata',
+      'email',
+      'profile',
+    ],
+  );
   
   static const String _encryptionEnabledKey = 'encryption_enabled';
   static const String _recoveryKeyGeneratedKey = 'recovery_key_generated';
@@ -134,6 +146,66 @@ class KeyManagementService extends ChangeNotifier {
     if (enabled && !await _cryptoService.hasMasterKey()) {
       // Auto-generate master key for hybrid approach
       await _cryptoService.getMasterKey();
+    }
+  }
+  
+  /// Get persistent master key for backup/restore (WhatsApp-style)
+  /// This ensures the same key is always used for a Google account
+  Future<Uint8List?> getPersistentMasterKey() async {
+    try {
+      if (kDebugMode) {
+        print('🔑 Getting persistent master key for backup/restore operations');
+      }
+      
+      // Get current Google account
+      final account = _googleSignIn.currentUser ?? await _googleSignIn.signInSilently();
+      if (account?.email == null) {
+        if (kDebugMode) {
+          print('❌ No Google account available for persistent key');
+        }
+        return null;
+      }
+      
+      final userEmail = account!.email!;
+      if (kDebugMode) {
+        print('👤 Getting persistent key for user: $userEmail');
+      }
+      
+      // Use BackupKeyManager to get or create persistent key
+      final persistentKey = await _backupKeyManager.getOrCreatePersistentMasterKey(userEmail);
+      
+      if (persistentKey != null) {
+        if (kDebugMode) {
+          print('✅ Successfully obtained persistent master key');
+        }
+        return persistentKey;
+      } else {
+        if (kDebugMode) {
+          print('❌ Failed to obtain persistent master key');
+        }
+        return null;
+      }
+      
+    } catch (e) {
+      if (kDebugMode) {
+        print('💥 Error getting persistent master key: $e');
+      }
+      return null;
+    }
+  }
+  
+  /// Check if persistent master key exists in cloud
+  Future<bool> hasPersistentMasterKey() async {
+    try {
+      final account = _googleSignIn.currentUser ?? await _googleSignIn.signInSilently();
+      if (account?.email == null) return false;
+      
+      return await _backupKeyManager.hasCloudKeys(account!.email!);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error checking persistent master key: $e');
+      }
+      return false;
     }
   }
 }
