@@ -13,29 +13,37 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.2
   shared_preferences: ^2.2.2
-  pdf: ^3.10.7 # Already present
-  printing: ^5.11.1 # Already present
+  pdf: ^3.10.7
+  printing: ^5.11.1
   intl: ^0.20.2
   hive: ^2.2.3
   hive_flutter: ^1.1.0
-  # logging: ^1.3.0 # This was in the user's pubspec, keeping it
-  # path_provider is used by printing or if saving file locally, ensure it's here if not transitive
-  path_provider: ^2.0.0 # Adding for completeness, printing might need it directly or transitively
-  # Authentication
+  path_provider: ^2.1.3
+  
+  # Google Sign-In & Drive (WhatsApp-style backup)
   google_sign_in: ^6.2.1
-  http: ^0.13.6
-  # Backup system dependencies
-  googleapis: ^11.0.0
-  googleapis_auth: ^1.4.1
-  connectivity_plus: ^4.0.0
-  uuid: ^4.0.0
-  # Encryption dependencies
-  cryptography: ^2.5.0
-  flutter_secure_storage: ^9.0.0
-  convert: ^3.1.1
-  base32: ^2.1.3
-  # Compression
-  archive: ^3.4.10
+  googleapis: ^13.1.0
+  googleapis_auth: ^1.6.0
+  
+  # Encryption
+  cryptography: ^2.7.0
+  flutter_secure_storage: ^9.2.2
+  
+  # Local Database
+  sqflite: ^2.3.3
+  
+  # Background Tasks
+  workmanager: ^0.5.2
+  
+  # Utilities
+  connectivity_plus: ^6.0.3
+  device_info_plus: ^10.1.0
+  permission_handler: ^11.3.1
+  
+  # UI Components
+  percent_indicator: ^4.2.3
+  flutter_local_notifications: ^17.1.2
+  uuid: ^4.4.0
 
 dev_dependencies:
   flutter_test:

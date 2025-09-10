@@ -5,7 +5,9 @@ import 'screens/simple_login_screen.dart';
 import 'models/income_entry.dart';
 import 'models/outcome_entry.dart';
 import 'models/entry_list_adapters.dart';
-import 'models/backup_models.dart';
+import 'backup/utils/backup_scheduler.dart';
+import 'backup/utils/notification_helper.dart';
+import 'backup/ui/restore_dialog.dart';
 
 class AppTheme {
   static ThemeData get lightTheme {
@@ -151,18 +153,12 @@ void main() async {
   if (!Hive.isAdapterRegistered(3)) {
     Hive.registerAdapter(OutcomeEntryListAdapter());
   }
-  if (!Hive.isAdapterRegistered(4)) {
-    Hive.registerAdapter(BackupInfoAdapter());
-  }
-  if (!Hive.isAdapterRegistered(5)) {
-    Hive.registerAdapter(BackupProgressAdapter());
-  }
-  if (!Hive.isAdapterRegistered(6)) {
-    Hive.registerAdapter(RestoreProgressAdapter());
-  }
-  if (!Hive.isAdapterRegistered(7)) {
-    Hive.registerAdapter(BackupSettingsAdapter());
-  }
+  // Initialize backup system
+  await BackupScheduler.initialize();
+  await NotificationHelper().initialize();
+  
+  // Request notification permissions
+  await NotificationHelper().requestPermissions();
 
 
   runApp(const AlKhaznaApp());

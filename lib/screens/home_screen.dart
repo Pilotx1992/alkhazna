@@ -1,7 +1,7 @@
 import 'package:google_sign_in/google_sign_in.dart';
 import 'simple_login_screen.dart';
-import 'restore_options_screen.dart';
-import 'simple_backup_screen.dart';
+import '../backup/ui/backup_settings_page.dart';
+import '../backup/ui/restore_dialog.dart';
 
 import "package:flutter/material.dart";
 import "package:shared_preferences/shared_preferences.dart";
@@ -54,6 +54,11 @@ class _HomeScreenState extends State<HomeScreen> {
     _selectedMonth = _months[DateTime.now().month - 1];
     _selectedYear = DateTime.now().year;
     _loadLastSelection();
+    
+    // Check for restore on app start
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      RestoreDialog.checkAndShowRestore(context);
+    });
   }
 
   @override
@@ -452,7 +457,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               onPressed: () {
                                 Navigator.push(
                                   context,
-                                  MaterialPageRoute(builder: (context) => const SimpleBackupScreen()),
+                                  MaterialPageRoute(builder: (context) => const BackupSettingsPage()),
                                 );
                               },
                               icon: const Icon(Icons.backup, size: 20),
@@ -472,10 +477,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           Expanded(
                             child: ElevatedButton.icon(
                               onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(builder: (context) => const RestoreOptionsScreen()),
-                                );
+                                RestoreDialog.show(context);
                               },
                               icon: const Icon(Icons.cloud_download, size: 20),
                               label: const Text('Restore'),
