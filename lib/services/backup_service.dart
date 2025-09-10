@@ -20,7 +20,10 @@ class BackupService extends ChangeNotifier {
   BackupService._internal();
 
   final GoogleSignIn _googleSignIn = GoogleSignIn(
-    scopes: [drive.DriveApi.driveFileScope],
+    scopes: [
+      drive.DriveApi.driveFileScope,
+      'https://www.googleapis.com/auth/drive.appdata',  // Required for app data folder access
+    ],
   );
 
   drive.DriveApi? _driveApi;

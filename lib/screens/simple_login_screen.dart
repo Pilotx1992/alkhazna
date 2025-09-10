@@ -15,6 +15,7 @@ class _SimpleLoginScreenState extends State<SimpleLoginScreen> {
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: [
       'https://www.googleapis.com/auth/drive.file',
+      'https://www.googleapis.com/auth/drive.appdata',  // Required for app data folder access
       'email',
       'profile',
     ],

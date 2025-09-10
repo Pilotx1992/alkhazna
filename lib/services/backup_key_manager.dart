@@ -36,10 +36,21 @@ class BackupKeyManager {
         print('🔍 Account match: ${currentUser?.email?.toLowerCase() == userEmail.toLowerCase()}');
       }
       
-      // Ensure user is authenticated
-      if (!await _ensureAuthenticated()) {
+      // Ensure user is authenticated with expected email
+      final account = await _ensureAuthenticated(expectedEmail: userEmail);
+      if (account == null) {
         if (kDebugMode) {
-          print('❌ User not authenticated, cannot save keys to cloud');
+          print('❌ User not authenticated or account mismatch, cannot save keys to cloud');
+        }
+        return false;
+      }
+      
+      // Double-check account email matches what we expect
+      if (account.email?.toLowerCase() != userEmail.toLowerCase()) {
+        if (kDebugMode) {
+          print('❌ Critical: Account email mismatch after authentication');
+          print('   Account: ${account.email}');
+          print('   Expected: $userEmail');
         }
         return false;
       }
@@ -47,13 +58,21 @@ class BackupKeyManager {
       // Derive master key from user's email
       final masterKey = await _deriveMasterKey(userEmail);
       
-      // Create key data structure
+      // Create key data structure with enhanced account binding
       final keyData = {
-        'version': '1.0',
+        'version': '1.1', // Updated version for enhanced binding
         'user_email': userEmail,
+        'user_email_normalized': userEmail.toLowerCase().trim(),
+        'google_account_id': account.id, // Google account ID for stronger binding
         'created_at': DateTime.now().toIso8601String(),
+        'last_accessed': DateTime.now().toIso8601String(),
         'encryption_key': hex.encode(encryptionKey),
         'app_version': '1.0.0', // TODO: Get from package info
+        'device_info': {
+          'platform': 'android', // Could be dynamic
+          'created_by': '${account.displayName} (${account.email})',
+        },
+        'security_checksum': _generateSecurityChecksum(userEmail, account.id),
       };
       
       // Encrypt the key data
@@ -94,10 +113,21 @@ class BackupKeyManager {
         print('🔍 Account match: ${currentUser?.email?.toLowerCase() == userEmail.toLowerCase()}');
       }
       
-      // Ensure user is authenticated
-      if (!await _ensureAuthenticated()) {
+      // Ensure user is authenticated with expected email
+      final account = await _ensureAuthenticated(expectedEmail: userEmail);
+      if (account == null) {
         if (kDebugMode) {
-          print('❌ User not authenticated, cannot retrieve keys from cloud');
+          print('❌ User not authenticated or account mismatch, cannot retrieve keys from cloud');
+        }
+        return null;
+      }
+      
+      // Double-check account email matches what we expect
+      if (account.email?.toLowerCase() != userEmail.toLowerCase()) {
+        if (kDebugMode) {
+          print('❌ Critical: Account email mismatch after authentication');
+          print('   Account: ${account.email}');
+          print('   Expected: $userEmail');
         }
         return null;
       }
@@ -126,13 +156,42 @@ class BackupKeyManager {
       final keyDataJson = utf8.decode(decryptedKeyData);
       final keyData = json.decode(keyDataJson) as Map<String, dynamic>;
       
-      // Validate the key data belongs to this user
+      // Enhanced validation - check multiple binding points
       final storedEmail = keyData['user_email'] as String;
+      final storedNormalizedEmail = keyData['user_email_normalized'] as String?;
+      final storedAccountId = keyData['google_account_id'] as String?;
+      final storedChecksum = keyData['security_checksum'] as String?;
+      
+      // Primary validation: email match
       if (storedEmail.toLowerCase() != userEmail.toLowerCase()) {
         if (kDebugMode) {
           print('❌ Key data belongs to different user: $storedEmail vs $userEmail');
         }
         return null;
+      }
+      
+      // Enhanced validation for v1.1+ keys
+      if (keyData['version'] == '1.1') {
+        // Validate Google account ID if available
+        if (storedAccountId != null && account.id != storedAccountId) {
+          if (kDebugMode) {
+            print('❌ Google account ID mismatch: ${account.id} vs $storedAccountId');
+            print('   This could indicate account transfer or security issue');
+          }
+          return null;
+        }
+        
+        // Validate security checksum
+        final expectedChecksum = _generateSecurityChecksum(userEmail, account.id);
+        if (storedChecksum != null && storedChecksum != expectedChecksum) {
+          if (kDebugMode) {
+            print('❌ Security checksum validation failed');
+          }
+          return null;
+        }
+        
+        // Update last accessed timestamp
+        await _updateLastAccessedTime(encryptedKeyData);
       }
       
       // Extract and return the encryption key
@@ -171,7 +230,11 @@ class BackupKeyManager {
   /// Delete backup keys from the cloud
   Future<bool> deleteCloudKeys() async {
     try {
-      if (!await _ensureAuthenticated()) {
+      final account = await _ensureAuthenticated();
+      if (account == null) {
+        if (kDebugMode) {
+          print('❌ User not authenticated, cannot delete cloud keys');
+        }
         return false;
       }
       
@@ -337,43 +400,138 @@ class BackupKeyManager {
     }
   }
   
-  /// Ensure Google authentication
-  Future<bool> _ensureAuthenticated() async {
+  /// Ensure Google authentication with forced account verification
+  Future<GoogleSignInAccount?> _ensureAuthenticated({String? expectedEmail}) async {
     try {
-      final account = await _googleSignIn.signIn();
-      return account != null;
+      if (kDebugMode) {
+        print('🔐 Starting Google authentication process...');
+      }
+      
+      // First try silent sign-in to get existing account
+      GoogleSignInAccount? account = await _googleSignIn.signInSilently();
+      
+      if (account == null) {
+        if (kDebugMode) {
+          print('🔑 Silent sign-in failed, requesting interactive sign-in...');
+        }
+        
+        // Force interactive sign-in if silent fails
+        account = await _googleSignIn.signIn();
+      }
+      
+      if (account != null) {
+        if (kDebugMode) {
+          print('📧 Active Google Account: ${account.email}');
+          print('🔍 Expected email: $expectedEmail');
+          print('✅ Account verification: ${expectedEmail == null ? "Not required" : account.email?.toLowerCase() == expectedEmail.toLowerCase() ? "✅ Match" : "❌ Mismatch"}');
+        }
+        
+        // If we have an expected email, verify it matches
+        if (expectedEmail != null && account.email?.toLowerCase() != expectedEmail.toLowerCase()) {
+          if (kDebugMode) {
+            print('❌ Account mismatch! Current: ${account.email}, Expected: $expectedEmail');
+            print('🔄 Attempting to sign out and re-authenticate with correct account...');
+          }
+          
+          // Sign out and try again
+          await _googleSignIn.signOut();
+          account = await _googleSignIn.signIn();
+          
+          // Final verification
+          if (account?.email?.toLowerCase() != expectedEmail.toLowerCase()) {
+            if (kDebugMode) {
+              print('💥 Final verification failed: ${account?.email} != $expectedEmail');
+            }
+            return null;
+          }
+        }
+        
+        if (kDebugMode) {
+          print('✅ Google authentication successful: ${account.email}');
+        }
+        return account;
+      } else {
+        if (kDebugMode) {
+          print('❌ Google authentication failed: No account returned');
+        }
+        return null;
+      }
     } catch (e) {
       if (kDebugMode) {
-        print('Authentication failed: $e');
+        print('💥 Authentication error: $e');
       }
-      return false;
+      return null;
     }
   }
   
   /// Debug method to list all files in app data folder
   Future<void> _debugListAppDataFolderFiles() async {
     try {
+      // First, list ALL files in appDataFolder
       final files = await _driveProvider.queryFiles("parents in 'appDataFolder'");
       if (kDebugMode) {
+        print('📂 DEBUG: Complete app data folder listing:');
         print('🔍 Found ${files.length} files in app data folder:');
         for (final file in files) {
-          print('   - Name: ${file['name']}, ID: ${file['id']}, Size: ${file['size']}');
+          print('   📄 Name: ${file['name']}, ID: ${file['id']}, Size: ${file['size']}, Modified: ${file['modifiedTime']}');
+        }
+        
+        // Search for any file containing "alkhazna" or "backup"
+        print('\n🔍 Searching for ANY files containing "alkhazna" or "backup":');
+        final allFiles = await _driveProvider.queryFiles("parents in 'appDataFolder' and (name contains 'alkhazna' or name contains 'backup')");
+        print('🔍 Found ${allFiles.length} files matching search terms');
+        for (final file in allFiles) {
+          print('   📄 Match: ${file['name']}, ID: ${file['id']}, Size: ${file['size']}');
         }
         
         // Also specifically search for our key file
-        print('🔍 Searching specifically for "$_keyFileName"...');
+        print('\n🔍 Searching specifically for "$_keyFileName"...');
         final keyFiles = await _driveProvider.queryFiles(
           "name='$_keyFileName' and parents in 'appDataFolder'"
         );
         print('🔍 Found ${keyFiles.length} key files with exact name match');
         for (final file in keyFiles) {
-          print('   - Key file: ${file['name']}, ID: ${file['id']}, Size: ${file['size']}');
+          print('   🔑 Key file: ${file['name']}, ID: ${file['id']}, Size: ${file['size']}');
+        }
+        
+        // Try different query formats
+        print('\n🔍 Trying alternative queries...');
+        try {
+          final altQuery1 = await _driveProvider.queryFiles("parents in 'appDataFolder' and name = '$_keyFileName'");
+          print('🔍 Alt query 1 (=): Found ${altQuery1.length} files');
+          
+          final altQuery2 = await _driveProvider.queryFiles("'appDataFolder' in parents and name = '$_keyFileName'");
+          print('🔍 Alt query 2 (reversed): Found ${altQuery2.length} files');
+        } catch (queryError) {
+          print('❌ Alternative query failed: $queryError');
         }
       }
     } catch (e) {
       if (kDebugMode) {
         print('❌ Error listing app data folder files: $e');
       }
+    }
+  }
+  
+  /// Generate security checksum for account binding validation
+  String _generateSecurityChecksum(String userEmail, String googleAccountId) {
+    final input = '${userEmail.toLowerCase().trim()}|$googleAccountId|alkhazna_security_v1';
+    final bytes = utf8.encode(input);
+    
+    // Simple hash for checksum - could be enhanced with crypto hash
+    int hash = 0;
+    for (int byte in bytes) {
+      hash = ((hash << 5) - hash + byte) & 0xffffffff;
+    }
+    return hash.toRadixString(16);
+  }
+  
+  /// Update the last accessed timestamp for the key file (stub for now)
+  Future<void> _updateLastAccessedTime(Map<String, String> keyData) async {
+    // TODO: Implement if we want to track access patterns
+    // For now, this is just a placeholder for future enhancement
+    if (kDebugMode) {
+      print('📝 Key access logged at ${DateTime.now().toIso8601String()}');
     }
   }
 }
