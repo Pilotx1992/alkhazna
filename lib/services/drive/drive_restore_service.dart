@@ -10,6 +10,7 @@ import '../../models/backup_models.dart';
 import '../../models/drive_manifest_model.dart';
 import '../../models/income_entry.dart';
 import '../../models/outcome_entry.dart';
+import '../backup_key_manager.dart';
 import '../crypto_service.dart';
 import '../storage_service.dart';
 import 'drive_provider_resumable.dart';
@@ -23,6 +24,7 @@ class DriveRestoreService extends ChangeNotifier {
 
   final DriveProviderResumable _driveProvider = DriveProviderResumable();
   final CryptoService _cryptoService = CryptoService();
+  final BackupKeyManager _keyManager = BackupKeyManager();
   final GoogleSignIn _googleSignIn = GoogleSignIn();
 
   RestoreProgress _currentProgress = RestoreProgress();
@@ -183,9 +185,30 @@ class DriveRestoreService extends ChangeNotifier {
     return ManifestUtils.validateManifest(manifest);
   }
 
-  /// Get master key for decryption
+  /// Get master key for decryption - tries cloud keys first, then local keys
   Future<Uint8List?> _getMasterKey(DriveManifest manifest) async {
     try {
+      final currentUser = _googleSignIn.currentUser;
+      
+      if (currentUser != null) {
+        // Try to retrieve keys from cloud first (for post-reinstall recovery)
+        if (kDebugMode) {
+          print('🔍 Attempting to retrieve master key from cloud for user: ${currentUser.email}');
+        }
+        
+        final cloudKey = await _keyManager.retrieveKeysFromCloud(currentUser.email);
+        if (cloudKey != null) {
+          if (kDebugMode) {
+            print('✅ Successfully retrieved master key from cloud');
+          }
+          return cloudKey;
+        }
+        
+        if (kDebugMode) {
+          print('⚠️ No cloud keys found, trying local device keys');
+        }
+      }
+
       // Check if wrapped master key is available for recovery
       if (manifest.wmk != null) {
         // TODO: Implement recovery key workflow
@@ -195,8 +218,18 @@ class DriveRestoreService extends ChangeNotifier {
         }
       }
 
-      // Use device-bound master key
-      return await _cryptoService.getMasterKey();
+      // Fallback: Use device-bound master key
+      final localKey = await _cryptoService.getMasterKey();
+      
+      // If we got a local key and have a user, save it to cloud for future use
+      if (localKey != null && currentUser != null) {
+        if (kDebugMode) {
+          print('💾 Saving local master key to cloud for future recovery');
+        }
+        await _keyManager.saveKeysToCloud(currentUser.email, localKey);
+      }
+      
+      return localKey;
     } catch (e) {
       if (kDebugMode) {
         print('Failed to get master key: $e');
@@ -216,6 +249,20 @@ class DriveRestoreService extends ChangeNotifier {
     
     if (kDebugMode) {
       print('✅ Master key reset completed. Cache cleared.');
+    }
+  }
+
+  /// Sign out current Google user (for account switching)
+  Future<void> signOutGoogleUser() async {
+    try {
+      await _googleSignIn.signOut();
+      if (kDebugMode) {
+        print('✅ Google user signed out successfully');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('⚠️ Error signing out Google user: $e');
+      }
     }
   }
 

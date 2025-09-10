@@ -7,6 +7,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:uuid/uuid.dart';
 import '../../models/backup_models.dart';
 import '../../models/drive_manifest_model.dart';
+import '../backup_key_manager.dart';
 import '../crypto_service.dart';
 import '../key_management_service.dart';
 import '../storage_service.dart';
@@ -22,6 +23,7 @@ class DriveBackupService extends ChangeNotifier {
   final DriveProviderResumable _driveProvider = DriveProviderResumable();
   final CryptoService _cryptoService = CryptoService();
   final KeyManagementService _keyManagementService = KeyManagementService();
+  final BackupKeyManager _keyManager = BackupKeyManager();
   final GoogleSignIn _googleSignIn = GoogleSignIn();
 
   BackupProgress _currentProgress = BackupProgress();
@@ -55,9 +57,25 @@ class DriveBackupService extends ChangeNotifier {
         return false;
       }
 
-      // Step 3: Ensure master key
+      // Step 3: Ensure master key and save to cloud
       _updateProgress(15.0, BackupStatus.preparing, 'Preparing encryption keys...');
       final masterKey = await _cryptoService.getMasterKey();
+      
+      // Save the master key to the cloud for recovery after app reinstallation
+      final currentUser = _googleSignIn.currentUser;
+      if (currentUser != null) {
+        _updateProgress(17.0, BackupStatus.preparing, 'Securing keys in cloud...');
+        final keysSaved = await _keyManager.saveKeysToCloud(currentUser.email, masterKey);
+        if (keysSaved) {
+          if (kDebugMode) {
+            print('✅ Master key successfully saved to cloud for user: ${currentUser.email}');
+          }
+        } else {
+          if (kDebugMode) {
+            print('⚠️ Warning: Failed to save master key to cloud. Backup will proceed but may not be restorable after app reinstall.');
+          }
+        }
+      }
 
       // Step 4: Create session and folder structure or resume existing
       _updateProgress(20.0, BackupStatus.preparing, 'Creating backup session...');

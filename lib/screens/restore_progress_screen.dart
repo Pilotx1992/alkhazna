@@ -630,14 +630,73 @@ class _RestoreProgressScreenState extends State<RestoreProgressScreen>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Reset Encryption Keys'),
-        content: const Text('This will reset your encryption keys and clear the cache. Only do this if the restore is consistently failing due to decryption errors.\n\nWarning: This may prevent restoring backups made with the old keys.'),
+        title: Row(
+          children: [
+            Icon(Icons.key_off, color: Colors.orange),
+            const SizedBox(width: 8),
+            const Text('Backup Recovery Failed'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Unable to decrypt your backup. This usually happens when:',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 12),
+              const Text('• You\'re using a different Google account'),
+              const Text('• The backup was created on a different device'),
+              const Text('• The app was reinstalled and keys were lost'),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info, color: Colors.blue.shade600, size: 20),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'We now store encryption keys securely in your Google Drive for future recovery.',
+                        style: TextStyle(fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'What would you like to do?',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
-          TextButton(
+          OutlinedButton.icon(
+            onPressed: () async {
+              Navigator.of(context).pop(); // Close dialog
+              _showGoogleAccountSwitchDialog();
+            },
+            icon: const Icon(Icons.account_circle, size: 18),
+            label: const Text('Switch Account'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.blue,
+              side: const BorderSide(color: Colors.blue),
+            ),
+          ),
+          ElevatedButton.icon(
             onPressed: () async {
               Navigator.of(context).pop(); // Close dialog
               
@@ -647,10 +706,47 @@ class _RestoreProgressScreenState extends State<RestoreProgressScreen>
               // Start fresh restore
               await _startFreshRestore();
             },
-            child: Text(
-              'Reset & Retry',
-              style: TextStyle(color: Colors.orange),
+            icon: const Icon(Icons.refresh, size: 18),
+            label: const Text('Reset & Retry'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showGoogleAccountSwitchDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Switch Google Account'),
+        content: const Text(
+          'To restore this backup, please sign in with the Google account that was used to create it.\n\n'
+          'After switching accounts, the restore will automatically retry with the correct encryption keys.'
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              Navigator.of(context).pop(); // Close dialog
+              
+              // Sign out current user and prompt for new sign in
+              await _restoreService.signOutGoogleUser();
+              
+              // Clear any cached keys since we're switching accounts
+              await _restoreService.resetMasterKeyAndRetry();
+              
+              // Start fresh restore which will prompt for account selection
+              await _startFreshRestore();
+            },
+            icon: const Icon(Icons.swap_horiz, size: 18),
+            label: const Text('Switch & Retry'),
           ),
         ],
       ),

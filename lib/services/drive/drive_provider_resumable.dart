@@ -356,6 +356,72 @@ class DriveProviderResumable {
     }
   }
 
+  /// Upload file to Google Drive's app data folder
+  Future<String?> uploadToAppDataFolder({
+    required String fileName,
+    required Uint8List content,
+    String mimeType = 'application/octet-stream',
+  }) async {
+    final token = await getAccessToken();
+    
+    // Create file metadata for app data folder
+    final metadata = {
+      'name': fileName,
+      'parents': ['appDataFolder'], // Special folder for app-specific data
+    };
+    
+    // Create multipart request body
+    final boundary = 'dart-boundary-${DateTime.now().millisecondsSinceEpoch}';
+    final metadataJson = json.encode(metadata);
+    
+    final bodyParts = <int>[];
+    
+    // Add metadata part
+    bodyParts.addAll(utf8.encode('--$boundary\r\n'));
+    bodyParts.addAll(utf8.encode('Content-Type: application/json; charset=UTF-8\r\n\r\n'));
+    bodyParts.addAll(utf8.encode(metadataJson));
+    bodyParts.addAll(utf8.encode('\r\n'));
+    
+    // Add file content part
+    bodyParts.addAll(utf8.encode('--$boundary\r\n'));
+    bodyParts.addAll(utf8.encode('Content-Type: $mimeType\r\n\r\n'));
+    bodyParts.addAll(content);
+    bodyParts.addAll(utf8.encode('\r\n'));
+    
+    // End boundary
+    bodyParts.addAll(utf8.encode('--$boundary--\r\n'));
+    
+    final uri = Uri.parse('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart');
+    
+    final resp = await _executeWithRetry(() async {
+      return await http.post(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'multipart/related; boundary="$boundary"',
+          'Content-Length': bodyParts.length.toString(),
+        },
+        body: bodyParts,
+      );
+    });
+
+    if (resp.statusCode == 200 || resp.statusCode == 201) {
+      final responseData = json.decode(resp.body);
+      final fileId = responseData['id'] as String;
+      
+      if (kDebugMode) {
+        print('Successfully uploaded to app data folder: $fileName (ID: $fileId)');
+      }
+      
+      return fileId;
+    } else {
+      if (kDebugMode) {
+        print('App data folder upload failed: ${resp.statusCode} ${resp.body}');
+      }
+      throw Exception('App data folder upload failed: ${resp.statusCode} ${resp.body}');
+    }
+  }
+
   /// Delete file or folder from Google Drive
   Future<void> deleteFile(String fileId) async {
     final token = await getAccessToken();
