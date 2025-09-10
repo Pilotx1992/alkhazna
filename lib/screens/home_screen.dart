@@ -522,7 +522,12 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: const Icon(Icons.logout),
               tooltip: 'Sign Out',
               onPressed: () async {
-                final googleSignIn = GoogleSignIn();
+                final googleSignIn = GoogleSignIn(
+                  scopes: [
+                    'https://www.googleapis.com/auth/drive.file',
+                    'https://www.googleapis.com/auth/drive.appdata',  // Required for app data folder access
+                  ],
+                );
                 await googleSignIn.signOut();
                 if (context.mounted) {
                   Navigator.of(context).pushAndRemoveUntil(

@@ -24,7 +24,12 @@ class DriveBackupService extends ChangeNotifier {
   final CryptoService _cryptoService = CryptoService();
   final KeyManagementService _keyManagementService = KeyManagementService();
   final BackupKeyManager _keyManager = BackupKeyManager();
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: [
+      'https://www.googleapis.com/auth/drive.file',
+      'https://www.googleapis.com/auth/drive.appdata',  // Required for app data folder access
+    ],
+  );
 
   BackupProgress _currentProgress = BackupProgress();
   bool _isBackupInProgress = false;

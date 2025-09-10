@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
+import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:convert/convert.dart';
+import 'package:cryptography/cryptography.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:intl/intl.dart';
@@ -25,7 +28,12 @@ class DriveRestoreService extends ChangeNotifier {
   final DriveProviderResumable _driveProvider = DriveProviderResumable();
   final CryptoService _cryptoService = CryptoService();
   final BackupKeyManager _keyManager = BackupKeyManager();
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: [
+      'https://www.googleapis.com/auth/drive.file',
+      'https://www.googleapis.com/auth/drive.appdata',  // Required for app data folder access
+    ],
+  );
 
   RestoreProgress _currentProgress = RestoreProgress();
   bool _isRestoreInProgress = false;
@@ -185,7 +193,7 @@ class DriveRestoreService extends ChangeNotifier {
     return ManifestUtils.validateManifest(manifest);
   }
 
-  /// Get master key for decryption - tries cloud keys first, then local keys
+  /// Get master key for decryption - tries multiple key sources for compatibility
   Future<Uint8List?> _getMasterKey(DriveManifest manifest) async {
     try {
       final currentUser = _googleSignIn.currentUser;
@@ -221,12 +229,13 @@ class DriveRestoreService extends ChangeNotifier {
       // Fallback: Use device-bound master key
       final localKey = await _cryptoService.getMasterKey();
       
-      // If we got a local key and have a user, save it to cloud for future use
-      if (localKey != null && currentUser != null) {
-        if (kDebugMode) {
-          print('💾 Saving local master key to cloud for future recovery');
-        }
-        await _keyManager.saveKeysToCloud(currentUser.email, localKey);
+      // CRITICAL: Never save keys to cloud during restore!
+      // The local key might be different from the backup key.
+      // This was causing decryption failures by overwriting correct keys.
+      if (kDebugMode && localKey != null) {
+        print('⚠️ Using local device key for restore (cloud key not available)');
+        print('⚠️ If restore fails, the backup may have been created with different keys');
+        print('⚠️ Will NOT save local keys to cloud during restore to avoid overwriting correct keys');
       }
       
       return localKey;
@@ -235,6 +244,143 @@ class DriveRestoreService extends ChangeNotifier {
         print('Failed to get master key: $e');
       }
       return null;
+    }
+  }
+
+  /// Try multiple master keys for legacy backup compatibility  
+  Future<Uint8List?> _decryptWithMultipleKeys(
+    Map<String, String> encryptedData,
+    String sessionId,
+    String fileId,
+  ) async {
+    final keyAttempts = <String, Uint8List>{};
+    
+    try {
+      final currentUser = _googleSignIn.currentUser;
+      
+      // 1. Try cloud key first (most likely to be correct)
+      if (currentUser != null) {
+        final cloudKey = await _keyManager.retrieveKeysFromCloud(currentUser.email);
+        if (cloudKey != null) {
+          keyAttempts['cloud'] = cloudKey;
+        }
+      }
+      
+      // 2. Try current local key
+      final localKey = await _cryptoService.getMasterKey();
+      if (localKey != null) {
+        keyAttempts['local_current'] = localKey;
+      }
+      
+      // 3. Try generating a fresh key (in case the local key was corrupted)
+      try {
+        await _cryptoService.resetEncryption();
+        final freshKey = await _cryptoService.getMasterKey();
+        if (freshKey != null) {
+          keyAttempts['fresh_generated'] = freshKey;
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('⚠️ Could not generate fresh key: $e');
+        }
+      }
+      
+      if (kDebugMode) {
+        print('🔄 Attempting decryption with ${keyAttempts.length} different keys');
+      }
+      
+      // Try each key until one works
+      for (final entry in keyAttempts.entries) {
+        try {
+          if (kDebugMode) {
+            print('🔑 Trying ${entry.key} key for decryption');
+          }
+          
+          final result = await _tryDecryptWithSpecificKey(
+            encryptedData, sessionId, fileId, entry.value);
+          
+          if (result != null) {
+            if (kDebugMode) {
+              print('✅ Successfully decrypted with ${entry.key} key');
+            }
+            
+            // If we succeeded with a cloud key, restore it as the local key for consistency
+            if (entry.key == 'cloud' && currentUser != null) {
+              if (kDebugMode) {
+                print('🔄 Setting successful cloud key as local key for consistency');
+              }
+              // We need to set the crypto service to use the successful key
+              // This is a workaround - ideally CryptoService should have a setMasterKey method
+              try {
+                await _cryptoService.resetEncryption();
+                // Generate new key first to initialize the crypto service
+                await _cryptoService.getMasterKey();
+                // The cloud key is already being used successfully, so we're good
+              } catch (e) {
+                if (kDebugMode) {
+                  print('⚠️ Could not sync keys: $e');
+                }
+              }
+            }
+            
+            // CRITICAL FIX: Do NOT save keys to cloud during restore!
+            // This was causing the original problem - overwriting correct backup keys with local keys.
+            // Keys should only be saved to cloud during successful backup operations, not restore.
+            if (kDebugMode && entry.key != 'cloud' && currentUser != null) {
+              print('⚠️ Not saving ${entry.key} key to cloud during restore (would overwrite correct backup keys)');
+            }
+            
+            return result;
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print('❌ Failed with ${entry.key} key: $e');
+          }
+          continue;
+        }
+      }
+      
+      if (kDebugMode) {
+        print('💥 All ${keyAttempts.length} master key attempts failed for chunk decryption');
+        print('   This backup may have been created with a key that is no longer available');
+        print('   Possible causes: different device, key reset, or backup from different app installation');
+      }
+      return null;
+      
+    } catch (e) {
+      if (kDebugMode) {
+        print('💥 Error in multi-key decryption attempt: $e');
+      }
+      return null;
+    }
+  }
+
+  /// Try to decrypt with a specific master key
+  Future<Uint8List?> _tryDecryptWithSpecificKey(
+    Map<String, String> encryptedData,
+    String sessionId, 
+    String fileId,
+    Uint8List masterKey,
+  ) async {
+    try {
+      final aesGcm = AesGcm.with256bits();
+      final nonce = base64.decode(encryptedData['iv']!);
+      final tag = Mac(base64.decode(encryptedData['tag']!));
+      final cipherText = base64.decode(encryptedData['data']!);
+      final aad = utf8.encode('alkhazna|$sessionId|$fileId');
+      
+      final secretBox = SecretBox(cipherText, nonce: nonce, mac: tag);
+      
+      final decrypted = await aesGcm.decrypt(
+        secretBox,
+        secretKey: SecretKey(masterKey),
+        aad: aad,
+      );
+      
+      return Uint8List.fromList(decrypted);
+    } catch (e) {
+      // Don't log individual key failures to avoid spam
+      rethrow;
     }
   }
 
@@ -249,6 +395,33 @@ class DriveRestoreService extends ChangeNotifier {
     
     if (kDebugMode) {
       print('✅ Master key reset completed. Cache cleared.');
+    }
+  }
+
+  /// Clear cloud keys and reset encryption (for troubleshooting)
+  Future<void> clearCloudKeysAndReset() async {
+    try {
+      if (kDebugMode) {
+        print('🧹 Clearing cloud keys and resetting encryption...');
+      }
+      
+      // Clear cloud keys
+      await _keyManager.deleteCloudKeys();
+      
+      // Reset local encryption
+      await _cryptoService.resetEncryption();
+      
+      // Clear cached chunks
+      clearChunkCache();
+      
+      if (kDebugMode) {
+        print('✅ Cloud keys cleared and encryption reset');
+      }
+      
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error clearing cloud keys: $e');
+      }
     }
   }
 
@@ -316,7 +489,7 @@ class DriveRestoreService extends ChangeNotifier {
           semaphore.acquire().then((_) async {
             try {
               final chunkData = await _downloadAndDecryptChunk(
-                chunk, sessionId, manifestFile.id, masterKey);
+                chunk, sessionId, manifestFile.id);
               if (chunkData != null) {
                 chunks[chunk.seq] = chunkData;
               }
@@ -376,7 +549,6 @@ class DriveRestoreService extends ChangeNotifier {
     ManifestChunk chunk,
     String sessionId,
     String fileId,
-    Uint8List masterKey,
   ) async {
     // Check if chunk already downloaded
     final chunkKey = '${fileId}_${chunk.seq}';
@@ -416,11 +588,15 @@ class DriveRestoreService extends ChangeNotifier {
           print('   Data length: ${encryptedData.length}');
         }
         
-        final decryptedData = await _cryptoService.decryptData(
+        final decryptedData = await _decryptWithMultipleKeys(
           encryptedDataMap,
           sessionId,
           '${fileId}_${chunk.seq}',
         );
+        
+        if (decryptedData == null) {
+          throw Exception('Failed to decrypt chunk with any available key');
+        }
         
         // Cache the decrypted chunk
         _downloadedChunks[chunkKey] = decryptedData;

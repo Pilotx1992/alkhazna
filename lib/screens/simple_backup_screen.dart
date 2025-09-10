@@ -20,7 +20,12 @@ class _SimpleBackupScreenState extends State<SimpleBackupScreen> {
   final DriveBackupService _backupService = DriveBackupService(); // Used for backup operations
   final DriveRestoreService _restoreService = DriveRestoreService(); // Used for restore operations
   final DriveProviderResumable _driveProvider = DriveProviderResumable(); // Used for Drive API calls
-  final GoogleSignIn _googleSignIn = GoogleSignIn(); // Used for authentication
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: [
+      'https://www.googleapis.com/auth/drive.file',
+      'https://www.googleapis.com/auth/drive.appdata',  // Required for app data folder access
+    ],
+  ); // Used for authentication
   
   bool _isLoading = true;
   bool _isSignedIn = false;
@@ -41,7 +46,12 @@ class _SimpleBackupScreenState extends State<SimpleBackupScreen> {
 
     try {
       // Check Google Sign-in status and get real user info
-      final googleSignIn = GoogleSignIn();
+      final googleSignIn = GoogleSignIn(
+        scopes: [
+          'https://www.googleapis.com/auth/drive.file',
+          'https://www.googleapis.com/auth/drive.appdata',  // Required for app data folder access
+        ],
+      );
       final currentUser = googleSignIn.currentUser ?? await googleSignIn.signInSilently();
       
       if (currentUser != null) {

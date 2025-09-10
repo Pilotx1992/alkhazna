@@ -15,7 +15,12 @@ class BackupKeyManager {
   BackupKeyManager._internal();
 
   final DriveProviderResumable _driveProvider = DriveProviderResumable();
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: [
+      'https://www.googleapis.com/auth/drive.file',
+      'https://www.googleapis.com/auth/drive.appdata',  // Required for app data folder access
+    ],
+  );
   final CryptoService _cryptoService = CryptoService();
   
   static const String _keyFileName = 'alkhazna_backup_keys.encrypted';
@@ -25,6 +30,10 @@ class BackupKeyManager {
     try {
       if (kDebugMode) {
         print('🔑 Saving encryption keys to Google Drive for user: $userEmail');
+        final currentUser = _googleSignIn.currentUser;
+        print('🔍 Current Google user during BACKUP: ${currentUser?.email}');
+        print('🔍 Requested user email: $userEmail');
+        print('🔍 Account match: ${currentUser?.email?.toLowerCase() == userEmail.toLowerCase()}');
       }
       
       // Ensure user is authenticated
@@ -79,6 +88,10 @@ class BackupKeyManager {
     try {
       if (kDebugMode) {
         print('🔍 Retrieving encryption keys from Google Drive for user: $userEmail');
+        final currentUser = _googleSignIn.currentUser;
+        print('🔍 Current Google user during RESTORE: ${currentUser?.email}');
+        print('🔍 Requested user email: $userEmail');
+        print('🔍 Account match: ${currentUser?.email?.toLowerCase() == userEmail.toLowerCase()}');
       }
       
       // Ensure user is authenticated
@@ -94,6 +107,8 @@ class BackupKeyManager {
       if (encryptedKeyData == null) {
         if (kDebugMode) {
           print('⚠️ No backup keys found in cloud');
+          print('🔍 DEBUG: Listing all files in app data folder...');
+          await _debugListAppDataFolderFiles();
         }
         return null;
       }
@@ -332,6 +347,33 @@ class BackupKeyManager {
         print('Authentication failed: $e');
       }
       return false;
+    }
+  }
+  
+  /// Debug method to list all files in app data folder
+  Future<void> _debugListAppDataFolderFiles() async {
+    try {
+      final files = await _driveProvider.queryFiles("parents in 'appDataFolder'");
+      if (kDebugMode) {
+        print('🔍 Found ${files.length} files in app data folder:');
+        for (final file in files) {
+          print('   - Name: ${file['name']}, ID: ${file['id']}, Size: ${file['size']}');
+        }
+        
+        // Also specifically search for our key file
+        print('🔍 Searching specifically for "$_keyFileName"...');
+        final keyFiles = await _driveProvider.queryFiles(
+          "name='$_keyFileName' and parents in 'appDataFolder'"
+        );
+        print('🔍 Found ${keyFiles.length} key files with exact name match');
+        for (final file in keyFiles) {
+          print('   - Key file: ${file['name']}, ID: ${file['id']}, Size: ${file['size']}');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error listing app data folder files: $e');
+      }
     }
   }
 }

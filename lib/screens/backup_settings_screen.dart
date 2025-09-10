@@ -42,7 +42,12 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
   }
 
   Future<void> _getCurrentUser() async {
-    final googleSignIn = GoogleSignIn();
+    final googleSignIn = GoogleSignIn(
+      scopes: [
+        'https://www.googleapis.com/auth/drive.file',
+        'https://www.googleapis.com/auth/drive.appdata',  // Required for app data folder access
+      ],
+    );
     final user = await googleSignIn.signInSilently();
     setState(() {
       _currentUser = user;
