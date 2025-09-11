@@ -45,7 +45,9 @@ class _RestoreDialogState extends State<RestoreDialog> {
         children: [
           Icon(Icons.restore, color: Colors.blue),
           SizedBox(width: 8),
-          Text('Restore from Backup'),
+          Expanded(
+            child: Text('Restore Backup'),
+          ),
         ],
       ),
       content: SizedBox(

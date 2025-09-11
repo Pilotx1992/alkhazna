@@ -1,5 +1,3 @@
-import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
@@ -16,6 +14,7 @@ class GoogleDriveService {
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: [
       'https://www.googleapis.com/auth/drive.appdata',
+      'https://www.googleapis.com/auth/drive.file',
       'email',
       'profile',
     ],
@@ -46,15 +45,43 @@ class GoogleDriveService {
         return false;
       }
 
-      // Create authenticated client
+      // Get fresh authentication headers
       final authHeaders = await account.authHeaders;
+      
+      if (kDebugMode) {
+        print('🔑 Auth headers received: ${authHeaders.keys.join(', ')}');
+        for (final key in authHeaders.keys) {
+          final value = authHeaders[key] ?? '';
+          print('🔑 $key: ${value.length > 30 ? '${value.substring(0, 30)}...' : value}');
+        }
+      }
+
+      // Use the GoogleSignInAuthentication approach instead
+      final authentication = await account.authentication;
+      final accessToken = authentication.accessToken;
+      
+      if (accessToken == null) {
+        if (kDebugMode) {
+          print('❌ No access token available');
+        }
+        return false;
+      }
+      
+      if (kDebugMode) {
+        print('🔑 Access token length: ${accessToken.length}');
+        print('🔑 Access token preview: ${accessToken.substring(0, accessToken.length > 20 ? 20 : accessToken.length)}...');
+      }
+      
       final authenticatedClient = AuthenticatedClient(
         http.Client(),
         AccessCredentials(
-          AccessToken('Bearer', authHeaders['authorization']!.substring(7), 
-              DateTime.now().add(const Duration(hours: 1))),
+          AccessToken('Bearer', accessToken, 
+              DateTime.now().toUtc().add(const Duration(hours: 1))),
           null,
-          ['https://www.googleapis.com/auth/drive.appdata'],
+          [
+            'https://www.googleapis.com/auth/drive.appdata',
+            'https://www.googleapis.com/auth/drive.file',
+          ],
         ),
       );
 
@@ -182,6 +209,7 @@ class GoogleDriveService {
         q: searchQuery,
         spaces: 'appDataFolder',
         orderBy: 'modifiedTime desc',
+        $fields: 'files(id,name,size,modifiedTime,createdTime)',
       );
 
       final files = fileList.files ?? [];
@@ -189,7 +217,7 @@ class GoogleDriveService {
       if (kDebugMode) {
         print('📋 Found ${files.length} files');
         for (final file in files) {
-          print('  - ${file.name} (${file.id}) - ${file.modifiedTime}');
+          print('  - ${file.name} (${file.id}) - Size: ${file.size} - ${file.modifiedTime}');
         }
       }
 
@@ -248,7 +276,7 @@ class GoogleDriveService {
         return null;
       }
 
-      return await _driveApi!.files.get(fileId);
+      return await _driveApi!.files.get(fileId) as drive.File;
     } catch (e) {
       if (kDebugMode) {
         print('💥 Error getting file info: $e');
@@ -264,7 +292,7 @@ class GoogleDriveService {
         return null;
       }
 
-      final about = await _driveApi!.about.get(fields: 'storageQuota');
+      final about = await _driveApi!.about.get();
       final quota = about.storageQuota;
       
       if (quota?.limit != null && quota?.usage != null) {
@@ -314,7 +342,14 @@ class AuthenticatedClient extends http.BaseClient {
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) {
-    request.headers['authorization'] = '${_credentials.accessToken.type} ${_credentials.accessToken.data}';
+    final authHeader = '${_credentials.accessToken.type} ${_credentials.accessToken.data}';
+    request.headers['Authorization'] = authHeader;
+    
+    if (kDebugMode) {
+      print('🌐 Making request to: ${request.url}');
+      print('🔑 Auth header: ${authHeader.substring(0, authHeader.length > 30 ? 30 : authHeader.length)}...');
+    }
+    
     return _inner.send(request);
   }
 }

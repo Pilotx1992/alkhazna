@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter/foundation.dart';
 
@@ -40,7 +39,7 @@ class EncryptionService {
         data,
         secretKey: secretKey,
         nonce: nonce,
-        aad: aad,
+        aad: aad != null ? aad! : [],
       );
 
       // Convert to base64 strings for storage
@@ -112,7 +111,7 @@ class EncryptionService {
       final decryptedData = await _algorithm.decrypt(
         secretBox,
         secretKey: secretKey,
-        aad: aad,
+        aad: aad != null ? aad! : [],
       );
 
       final result = Uint8List.fromList(decryptedData);
@@ -241,8 +240,12 @@ class EncryptionService {
 
   /// Generate secure random bytes
   Future<Uint8List> generateRandomBytes(int length) async {
-    final random = SecureRandom.fast();
-    return Uint8List.fromList(await random.getBytes(length));
+    final random = SecureRandom.fast;
+    final bytes = List<int>.filled(length, 0);
+    for (int i = 0; i < length; i++) {
+      bytes[i] = random.nextInt(256);
+    }
+    return Uint8List.fromList(bytes);
   }
 
   /// Secure wipe of sensitive data from memory

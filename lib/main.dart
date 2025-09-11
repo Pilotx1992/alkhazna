@@ -7,7 +7,6 @@ import 'models/outcome_entry.dart';
 import 'models/entry_list_adapters.dart';
 import 'backup/utils/backup_scheduler.dart';
 import 'backup/utils/notification_helper.dart';
-import 'backup/ui/restore_dialog.dart';
 
 class AppTheme {
   static ThemeData get lightTheme {

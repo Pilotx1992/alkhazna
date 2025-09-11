@@ -57,7 +57,7 @@ class _HomeScreenState extends State<HomeScreen> {
     
     // Check for restore on app start
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      RestoreDialog.checkAndShowRestore(context);
+      _checkAndShowRestore(context);
     });
   }
 
@@ -477,7 +477,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           Expanded(
                             child: ElevatedButton.icon(
                               onPressed: () {
-                                RestoreDialog.show(context);
+                                _showRestoreDialog(context);
                               },
                               icon: const Icon(Icons.cloud_download, size: 20),
                               label: const Text('Restore'),
@@ -544,6 +544,28 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         body: bodyContent,
       ),
+    );
+  }
+
+  /// Check for backup and show restore dialog if available
+  Future<void> _checkAndShowRestore(BuildContext context) async {
+    try {
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const RestoreDialog(),
+      );
+    } catch (e) {
+      // Silently handle errors - no need to show error if no backup found
+    }
+  }
+
+  /// Show restore dialog
+  Future<void> _showRestoreDialog(BuildContext context) async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const RestoreDialog(),
     );
   }
 }

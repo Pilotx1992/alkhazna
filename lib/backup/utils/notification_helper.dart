@@ -1,7 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import '../models/backup_status.dart';
-
 /// Enhanced notification system for backup operations
 class NotificationHelper {
   static final NotificationHelper _instance = NotificationHelper._internal();
@@ -197,7 +195,7 @@ class NotificationHelper {
             category: success 
                 ? AndroidNotificationCategory.status 
                 : AndroidNotificationCategory.error,
-            color: success ? const NotificationColor(0xFF4CAF50) : const NotificationColor(0xFFF44336),
+            colorized: true,
           ),
         ),
       );
@@ -239,7 +237,7 @@ class NotificationHelper {
             category: success 
                 ? AndroidNotificationCategory.status 
                 : AndroidNotificationCategory.error,
-            color: success ? const NotificationColor(0xFF4CAF50) : const NotificationColor(0xFFF44336),
+            colorized: true,
           ),
         ),
       );
@@ -380,7 +378,7 @@ class NotificationHelper {
           .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
       
       if (androidPlugin != null) {
-        final granted = await androidPlugin.requestPermission();
+        final granted = await androidPlugin.requestNotificationsPermission();
         
         if (kDebugMode) {
           print('📱 Notification permission granted: $granted');

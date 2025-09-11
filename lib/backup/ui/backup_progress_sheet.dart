@@ -4,7 +4,6 @@ import '../models/backup_status.dart';
 import '../models/restore_result.dart';
 import '../services/backup_service.dart';
 import '../utils/notification_helper.dart';
-import 'restore_dialog.dart';
 
 /// WhatsApp-style backup progress sheet
 class BackupProgressSheet extends StatefulWidget {

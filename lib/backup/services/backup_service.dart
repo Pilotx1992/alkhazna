@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:sqflite/sqflite.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import '../../models/income_entry.dart';
+import '../../models/outcome_entry.dart';
 import '../models/backup_metadata.dart';
 import '../models/backup_status.dart';
 import '../models/restore_result.dart';
@@ -253,6 +253,16 @@ class BackupService extends ChangeNotifier {
       final backupFile = backupFiles.first;
       final currentUser = _driveService.currentUser;
       
+      // Get detailed file info to ensure we have the correct size
+      final detailedFileInfo = await _driveService.getFileInfo(backupFile.id!);
+      final fileSize = int.tryParse(detailedFileInfo?.size ?? backupFile.size ?? '0') ?? 0;
+      
+      if (kDebugMode) {
+        print('📊 Backup file size from API: ${backupFile.size}');
+        print('📊 Detailed file size: ${detailedFileInfo?.size}');
+        print('📊 Final file size: $fileSize bytes');
+      }
+      
       return BackupMetadata(
         version: '1.0',
         userEmail: currentUser?.email ?? 'Unknown',
@@ -261,7 +271,7 @@ class BackupService extends ChangeNotifier {
         deviceId: 'Unknown Device',
         createdAt: backupFile.modifiedTime ?? DateTime.now(),
         checksum: 'unknown',
-        fileSizeBytes: int.tryParse(backupFile.size ?? '0') ?? 0,
+        fileSizeBytes: fileSize,
         driveFileId: backupFile.id!,
       );
     } catch (e) {
@@ -275,27 +285,91 @@ class BackupService extends ChangeNotifier {
   /// Create database backup
   Future<Uint8List?> _createDatabaseBackup() async {
     try {
-      final databasesPath = await getDatabasesPath();
-      final dbPath = '$databasesPath/app.db';
-      
-      // Check if database exists
-      if (!await File(dbPath).exists()) {
-        if (kDebugMode) {
-          print('⚠️ Database file not found: $dbPath');
-        }
-        // Create empty database backup
-        return Uint8List(0);
+      if (kDebugMode) {
+        print('💾 Creating Hive database backup...');
       }
 
-      // Read database file
-      final dbFile = File(dbPath);
-      final bytes = await dbFile.readAsBytes();
+      // Get all data from Hive boxes
+      final Map<String, dynamic> backupData = {};
+      
+      // Backup income entries
+      final incomeBox = await Hive.openBox<List<dynamic>>('income_entries');
+      final incomeData = <String, dynamic>{};
       
       if (kDebugMode) {
-        print('📱 Database backup created: ${bytes.length} bytes');
+        print('📊 Income box keys: ${incomeBox.keys.toList()}');
+        print('📊 Income box length: ${incomeBox.length}');
       }
       
-      return bytes;
+      for (final key in incomeBox.keys) {
+        final value = incomeBox.get(key);
+        if (value is List) {
+          // Convert IncomeEntry objects to JSON for serialization
+          final jsonList = value.map((item) {
+            if (item is IncomeEntry) {
+              return item.toJson();
+            } else if (item is Map<String, dynamic>) {
+              return item; // Already in JSON format
+            } else {
+              // Try to convert dynamic object to IncomeEntry
+              return (item as dynamic).toJson();
+            }
+          }).toList();
+          incomeData[key.toString()] = jsonList;
+        } else {
+          incomeData[key.toString()] = value;
+        }
+        if (kDebugMode) {
+          print('📊 Income key: $key, value type: ${value.runtimeType}, length: ${value is List ? value.length : 'not a list'}');
+        }
+      }
+      backupData['income_entries'] = incomeData;
+      
+      // Backup outcome entries  
+      final outcomeBox = await Hive.openBox<List<dynamic>>('outcome_entries');
+      final outcomeData = <String, dynamic>{};
+      
+      if (kDebugMode) {
+        print('📊 Outcome box keys: ${outcomeBox.keys.toList()}');
+        print('📊 Outcome box length: ${outcomeBox.length}');
+      }
+      
+      for (final key in outcomeBox.keys) {
+        final value = outcomeBox.get(key);
+        if (value is List) {
+          // Convert OutcomeEntry objects to JSON for serialization
+          final jsonList = value.map((item) {
+            if (item is OutcomeEntry) {
+              return item.toJson();
+            } else if (item is Map<String, dynamic>) {
+              return item; // Already in JSON format
+            } else {
+              // Try to convert dynamic object to OutcomeEntry
+              return (item as dynamic).toJson();
+            }
+          }).toList();
+          outcomeData[key.toString()] = jsonList;
+        } else {
+          outcomeData[key.toString()] = value;
+        }
+        if (kDebugMode) {
+          print('📊 Outcome key: $key, value type: ${value.runtimeType}, length: ${value is List ? value.length : 'not a list'}');
+        }
+      }
+      backupData['outcome_entries'] = outcomeData;
+
+      // Convert to JSON bytes
+      final jsonString = json.encode(backupData);
+      final bytes = utf8.encode(jsonString);
+      
+      if (kDebugMode) {
+        print('💾 Encrypting database for backup...');
+        print('   Database size: ${bytes.length} bytes');
+        print('   Income entries: ${incomeData.length} months');
+        print('   Outcome entries: ${outcomeData.length} months');
+      }
+      
+      return Uint8List.fromList(bytes);
     } catch (e) {
       if (kDebugMode) {
         print('💥 Error creating database backup: $e');
@@ -307,33 +381,124 @@ class BackupService extends ChangeNotifier {
   /// Restore database from backup
   Future<RestoreResult> _restoreDatabase(Uint8List databaseBytes) async {
     try {
-      final databasesPath = await getDatabasesPath();
-      final dbPath = '$databasesPath/app.db';
-      
-      // Close any existing database connections
-      try {
-        await databaseFactory.deleteDatabase(dbPath);
-      } catch (e) {
-        if (kDebugMode) {
-          print('⚠️ Could not delete existing database: $e');
-        }
+      if (kDebugMode) {
+        print('💾 Restoring Hive database from backup...');
       }
 
-      // Write restored database
-      if (databaseBytes.isNotEmpty) {
-        final dbFile = File(dbPath);
-        await dbFile.writeAsBytes(databaseBytes);
+      if (databaseBytes.isEmpty) {
+        if (kDebugMode) {
+          print('⚠️ No data to restore (empty backup)');
+        }
+        return RestoreResult.success(
+          incomeEntries: 0,
+          outcomeEntries: 0,
+          backupDate: DateTime.now(),
+          sourceDevice: 'Unknown Device',
+        );
+      }
+
+      // Parse JSON from backup
+      final jsonString = utf8.decode(databaseBytes);
+      final Map<String, dynamic> backupData = json.decode(jsonString);
+      
+      int restoredIncomeEntries = 0;
+      int restoredOutcomeEntries = 0;
+
+      // Restore income entries
+      if (backupData.containsKey('income_entries')) {
+        final incomeBox = await Hive.openBox<List<dynamic>>('income_entries');
+        await incomeBox.clear(); // Clear existing data
+        
+        final incomeData = backupData['income_entries'] as Map<String, dynamic>;
+        for (final entry in incomeData.entries) {
+          if (entry.value is List) {
+            // Convert JSON objects back to IncomeEntry objects
+            final entryList = (entry.value as List).map((item) {
+              try {
+                if (item is Map<String, dynamic>) {
+                  return IncomeEntry.fromJson(item);
+                } else if (item is IncomeEntry) {
+                  return item; // Already correct type
+                } else {
+                  // Try to convert from dynamic
+                  return IncomeEntry.fromJson(item as Map<String, dynamic>);
+                }
+              } catch (e) {
+                if (kDebugMode) {
+                  print('⚠️ Error converting income entry: $e, item: $item');
+                }
+                rethrow;
+              }
+            }).toList();
+            
+            await incomeBox.put(entry.key, entryList);
+            restoredIncomeEntries += entryList.length;
+            
+            if (kDebugMode) {
+              print('📱 Restored ${entry.key}: ${entryList.length} income entries');
+            }
+          } else {
+            await incomeBox.put(entry.key, entry.value);
+          }
+        }
         
         if (kDebugMode) {
-          print('📱 Database restored: ${databaseBytes.length} bytes');
+          print('📱 Restored ${incomeData.length} income months total');
         }
       }
 
-      // TODO: Count restored entries by opening database and querying
-      // For now, return dummy counts
+      // Restore outcome entries
+      if (backupData.containsKey('outcome_entries')) {
+        final outcomeBox = await Hive.openBox<List<dynamic>>('outcome_entries');
+        await outcomeBox.clear(); // Clear existing data
+        
+        final outcomeData = backupData['outcome_entries'] as Map<String, dynamic>;
+        for (final entry in outcomeData.entries) {
+          if (entry.value is List) {
+            // Convert JSON objects back to OutcomeEntry objects
+            final entryList = (entry.value as List).map((item) {
+              try {
+                if (item is Map<String, dynamic>) {
+                  return OutcomeEntry.fromJson(item);
+                } else if (item is OutcomeEntry) {
+                  return item; // Already correct type
+                } else {
+                  // Try to convert from dynamic
+                  return OutcomeEntry.fromJson(item as Map<String, dynamic>);
+                }
+              } catch (e) {
+                if (kDebugMode) {
+                  print('⚠️ Error converting outcome entry: $e, item: $item');
+                }
+                rethrow;
+              }
+            }).toList();
+            
+            await outcomeBox.put(entry.key, entryList);
+            restoredOutcomeEntries += entryList.length;
+            
+            if (kDebugMode) {
+              print('📱 Restored ${entry.key}: ${entryList.length} outcome entries');
+            }
+          } else {
+            await outcomeBox.put(entry.key, entry.value);
+          }
+        }
+        
+        if (kDebugMode) {
+          print('📱 Restored ${outcomeData.length} outcome months total');
+        }
+      }
+
+      if (kDebugMode) {
+        print('✅ Database restored successfully');
+        print('   Total income entries: $restoredIncomeEntries');
+        print('   Total outcome entries: $restoredOutcomeEntries');
+      }
+
       return RestoreResult.success(
-        incomeEntries: 0,
-        outcomeEntries: 0,
+        incomeEntries: restoredIncomeEntries,
+        outcomeEntries: restoredOutcomeEntries,
         backupDate: DateTime.now(),
         sourceDevice: 'Unknown Device',
       );
