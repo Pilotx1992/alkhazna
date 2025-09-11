@@ -553,7 +553,9 @@ class _HomeScreenState extends State<HomeScreen> {
       showDialog<void>(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const RestoreDialog(),
+        builder: (context) => RestoreDialog(
+          onRestoreComplete: _loadTotals,
+        ),
       );
     } catch (e) {
       // Silently handle errors - no need to show error if no backup found
@@ -565,7 +567,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const RestoreDialog(),
+      builder: (context) => RestoreDialog(
+        onRestoreComplete: _loadTotals,
+      ),
     );
   }
 }

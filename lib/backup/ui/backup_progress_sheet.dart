@@ -8,10 +8,12 @@ import '../utils/notification_helper.dart';
 /// WhatsApp-style backup progress sheet
 class BackupProgressSheet extends StatefulWidget {
   final bool isRestore;
+  final VoidCallback? onRestoreComplete;
 
   const BackupProgressSheet({
     super.key,
     this.isRestore = false,
+    this.onRestoreComplete,
   });
 
   @override
@@ -130,6 +132,10 @@ class _BackupProgressSheetState extends State<BackupProgressSheet> {
 
       if (mounted) {
         if (result.success) {
+          // Call the refresh callback to update the UI immediately
+          if (widget.onRestoreComplete != null) {
+            widget.onRestoreComplete!();
+          }
           _showSuccessAndClose('Restore completed successfully!');
         } else {
           _showErrorDialog(result.errorMessage ?? 'Restore failed. Please try again.');

@@ -5,7 +5,12 @@ import 'backup_progress_sheet.dart';
 
 /// WhatsApp-style restore dialog
 class RestoreDialog extends StatefulWidget {
-  const RestoreDialog({super.key});
+  final VoidCallback? onRestoreComplete;
+  
+  const RestoreDialog({
+    super.key,
+    this.onRestoreComplete,
+  });
 
   @override
   State<RestoreDialog> createState() => _RestoreDialogState();
@@ -300,7 +305,10 @@ class _RestoreDialogState extends State<RestoreDialog> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       isDismissible: false,
-      builder: (context) => const BackupProgressSheet(isRestore: true),
+      builder: (context) => BackupProgressSheet(
+        isRestore: true,
+        onRestoreComplete: widget.onRestoreComplete,
+      ),
     );
   }
 
