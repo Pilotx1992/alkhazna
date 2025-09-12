@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'screens/simple_login_screen.dart';
+import 'package:provider/provider.dart';
+import 'screens/login_screen.dart';
+import 'screens/home_screen.dart';
 import 'models/income_entry.dart';
 import 'models/outcome_entry.dart';
+import 'models/user.dart';
 import 'models/entry_list_adapters.dart';
-import 'backup/utils/backup_scheduler.dart';
-import 'backup/utils/notification_helper.dart';
+import 'services/auth_service.dart';
 
 class AppTheme {
   static ThemeData get lightTheme {
@@ -152,12 +154,10 @@ void main() async {
   if (!Hive.isAdapterRegistered(3)) {
     Hive.registerAdapter(OutcomeEntryListAdapter());
   }
-  // Initialize backup system
-  await BackupScheduler.initialize();
-  await NotificationHelper().initialize();
-  
-  // Request notification permissions
-  await NotificationHelper().requestPermissions();
+  // User adapter for authentication (using typeId 4)
+  if (!Hive.isAdapterRegistered(4)) {
+    Hive.registerAdapter(UserAdapter());
+  }
 
 
   runApp(const AlKhaznaApp());
@@ -168,20 +168,77 @@ class AlKhaznaApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Al Khazna',
-      theme: AppTheme.lightTheme,
-      home: const SimpleLoginScreen(),
-      locale: const Locale('en', ''),
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [
-        Locale('ar', ''),
-        Locale('en', ''),
-      ],
+    return ChangeNotifierProvider(
+      create: (context) => AuthService()..initialize(),
+      child: MaterialApp(
+        title: 'Al Khazna',
+        theme: AppTheme.lightTheme,
+        home: const AuthWrapper(),
+        locale: const Locale('en', ''),
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('ar', ''),
+          Locale('en', ''),
+        ],
+      ),
+    );
+  }
+}
+
+/// Authentication wrapper to handle routing based on auth state
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<AuthService>(
+      builder: (context, authService, child) {
+        final authState = authService.authState;
+        
+        // Show loading while initializing
+        if (authState.isLoading) {
+          return const Scaffold(
+            backgroundColor: Color(0xFFF8F9FA),
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // App logo
+                  Icon(
+                    Icons.account_balance_wallet_outlined,
+                    size: 64,
+                    color: Color(0xFF2E7D32),
+                  ),
+                  SizedBox(height: 24),
+                  Text(
+                    'Al Khazna',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF2E7D32),
+                    ),
+                  ),
+                  SizedBox(height: 32),
+                  CircularProgressIndicator(
+                    color: Color(0xFF2E7D32),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        
+        // Navigate based on authentication state
+        if (authState.isAuthenticated) {
+          return const HomeScreen();
+        } else {
+          return const LoginScreen();
+        }
+      },
     );
   }
 }

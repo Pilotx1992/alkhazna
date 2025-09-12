@@ -31,7 +31,9 @@
       "Bash(del:*)",
       "Bash(rd:*)",
       "Bash(dart run:*)",
-      "Bash(dart:*)"
+      "Bash(dart:*)",
+      "Bash(git clean:*)",
+      "Bash(ren:*)"
     ],
     "deny": [],
     "ask": []

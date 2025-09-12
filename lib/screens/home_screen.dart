@@ -1,7 +1,7 @@
 import 'package:google_sign_in/google_sign_in.dart';
-import 'simple_login_screen.dart';
-import '../backup/ui/backup_settings_page.dart';
-import '../backup/ui/restore_dialog.dart';
+import 'login_screen.dart';
+import 'backup_screen.dart';
+import 'settings_screen.dart';
 
 import "package:flutter/material.dart";
 import "package:shared_preferences/shared_preferences.dart";
@@ -455,9 +455,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           Expanded(
                             child: ElevatedButton.icon(
                               onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(builder: (context) => const BackupSettingsPage()),
+                                // Backup functionality will be re-implemented in Phase 2
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Backup feature coming soon!')),
                                 );
                               },
                               icon: const Icon(Icons.backup, size: 20),
@@ -477,7 +477,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           Expanded(
                             child: ElevatedButton.icon(
                               onPressed: () {
-                                _showRestoreDialog(context);
+                                // Restore functionality will be re-implemented in Phase 2
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Restore feature coming soon!')),
+                                );
                               },
                               icon: const Icon(Icons.cloud_download, size: 20),
                               label: const Text('Restore'),
@@ -521,6 +524,18 @@ class _HomeScreenState extends State<HomeScreen> {
           elevation: 0,
           actions: [
             IconButton(
+              icon: const Icon(Icons.cloud_outlined),
+              tooltip: 'Backup & Restore',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const BackupScreen(),
+                  ),
+                );
+              },
+            ),
+            IconButton(
               icon: const Icon(Icons.logout),
               tooltip: 'Sign Out',
               onPressed: () async {
@@ -533,7 +548,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 await googleSignIn.signOut();
                 if (context.mounted) {
                   Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (context) => const SimpleLoginScreen()),
+                    MaterialPageRoute(builder: (context) => const LoginScreen()),
                     (route) => false,
                   );
                 }
@@ -548,28 +563,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   /// Check for backup and show restore dialog if available
+  /// Temporarily disabled - will be re-implemented in Phase 2
   Future<void> _checkAndShowRestore(BuildContext context) async {
-    try {
-      showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => RestoreDialog(
-          onRestoreComplete: _loadTotals,
-        ),
-      );
-    } catch (e) {
-      // Silently handle errors - no need to show error if no backup found
-    }
-  }
-
-  /// Show restore dialog
-  Future<void> _showRestoreDialog(BuildContext context) async {
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => RestoreDialog(
-        onRestoreComplete: _loadTotals,
-      ),
-    );
+    // TODO: Re-implement backup/restore functionality
   }
 }
