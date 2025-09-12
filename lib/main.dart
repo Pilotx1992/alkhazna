@@ -9,6 +9,8 @@ import 'models/outcome_entry.dart';
 import 'models/user.dart';
 import 'models/entry_list_adapters.dart';
 import 'services/auth_service.dart';
+import 'utils/backup_scheduler.dart';
+import 'utils/notification_helper.dart';
 
 class AppTheme {
   static ThemeData get lightTheme {
@@ -159,6 +161,9 @@ void main() async {
     Hive.registerAdapter(UserAdapter());
   }
 
+  // Initialize backup scheduler and notifications for auto-backup functionality
+  await BackupScheduler.initialize();
+  await NotificationHelper().initialize();
 
   runApp(const AlKhaznaApp());
 }
