@@ -126,6 +126,42 @@ class _BalanceScreenState extends State<BalanceScreen>
     }
   }
 
+  Future<void> _sharePdf() async {
+    final confirmed = await _showConfirmDialog(
+      'Share PDF Report',
+      'Generate and share PDF report for ${widget.month} ${widget.year}?',
+      'Share',
+    );
+
+    if (!confirmed) return;
+
+    try {
+      final incomeEntries =
+          await _storageService.getIncomeEntries(widget.month, widget.year);
+      final outcomeEntries =
+          await _storageService.getOutcomeEntries(widget.month, widget.year);
+      await PdfService.shareComprehensiveReport(
+        month: widget.month,
+        year: widget.year,
+        incomeEntries: incomeEntries,
+        outcomeEntries: outcomeEntries,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('PDF shared successfully!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Failed to share PDF'),
+              backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   Future<bool> _showConfirmDialog(
       String title, String message, String confirmText) async {
     final result = await showDialog<bool>(
@@ -169,6 +205,10 @@ class _BalanceScreenState extends State<BalanceScreen>
 
         // Export Button
         _buildSimpleExportButton(),
+        const SizedBox(height: 12),
+
+        // Share Button
+        _buildShareButton(),
         const SizedBox(height: 20),
       ],
     );
@@ -359,6 +399,52 @@ class _BalanceScreenState extends State<BalanceScreen>
                 SizedBox(width: 12),
                 Text(
                   'Export PDF Report',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShareButton() {
+    return Container(
+      width: double.infinity,
+      height: 56,
+      decoration: BoxDecoration(
+        color: Colors.green.shade600,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.green.withAlpha((255 * 0.3).round()),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _sharePdf,
+          borderRadius: BorderRadius.circular(16),
+          child: const Center(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.share,
+                  color: Colors.white,
+                  size: 24,
+                ),
+                SizedBox(width: 12),
+                Text(
+                  'Share PDF Report',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 16,

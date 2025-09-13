@@ -151,6 +151,54 @@ class PdfService {
     await Printing.layoutPdf(onLayout: (format) async => doc.save());
   }
 
+  static Future<void> shareComprehensiveReport({
+    required String month,
+    required int year,
+    required List<IncomeEntry> incomeEntries,
+    required List<OutcomeEntry> outcomeEntries,
+  }) async {
+    // Create the PDF document using the same logic as export
+    final doc = pw.Document();
+    final font = pw.Font.ttf(
+        await rootBundle.load('assets/fonts/NotoSansArabic-Regular.ttf'));
+    final boldFont = pw.Font.ttf(await rootBundle
+        .load('assets/fonts/NotoSansArabic-VariableFont_wdth,wght.ttf'));
+
+    final filteredIncome =
+        incomeEntries.where((e) => e.name.isNotEmpty || e.amount > 0).toList();
+    final filteredOutcome =
+        outcomeEntries.where((e) => e.name.isNotEmpty || e.amount > 0).toList();
+
+    // Build the same PDF content as export
+    _addPaginatedTablePages<IncomeEntry>(
+      doc: doc,
+      entries: filteredIncome,
+      font: font,
+      boldFont: boldFont,
+      title: 'Income Entries - $month $year',
+      headerColor: PdfColors.green,
+      totalColor: PdfColors.green,
+      totalAmount: filteredIncome.fold<double>(0, (sum, e) => sum + e.amount),
+    );
+
+    _addPaginatedTablePages<OutcomeEntry>(
+      doc: doc,
+      entries: filteredOutcome,
+      font: font,
+      boldFont: boldFont,
+      title: 'Expense Entries - $month $year',
+      headerColor: PdfColors.red,
+      totalColor: PdfColors.red,
+      totalAmount: filteredOutcome.fold<double>(0, (sum, e) => sum + e.amount),
+    );
+
+    // Share the PDF instead of saving it
+    await Printing.sharePdf(
+      bytes: await doc.save(),
+      filename: 'AlKhazna_Report_${month}_$year.pdf',
+    );
+  }
+
   static Future<void> generateAndPrintReport({
     required String month,
     required int year,
