@@ -213,13 +213,7 @@ class _SignupScreenState extends State<SignupScreen>
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios,
-            color: Color(0xFF424242),
-          ),
-          onPressed: () => Navigator.pop(context),
-        ),
+        automaticallyImplyLeading: false,
       ),
       body: SafeArea(
         child: AnimatedBuilder(
@@ -438,6 +432,11 @@ class _SignupScreenState extends State<SignupScreen>
                       : Icons.visibility_outlined,
                   color: const Color(0xFF757575),
                 ),
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                ),
+                splashColor: Colors.transparent,
+                highlightColor: Colors.transparent,
                 onPressed: onTogglePasswordVisibility,
               )
             : null,
@@ -788,7 +787,7 @@ class _AccountSetupFlowState extends State<_AccountSetupFlow> {
     });
     
     final authService = Provider.of<AuthService>(context, listen: false);
-    final success = await authService.enableBiometric();
+    await authService.enableBiometric();
     
     setState(() {
       _isLoading = false;

@@ -43,22 +43,21 @@ class BackupScheduler {
       // Cancel existing tasks
       await Workmanager().cancelByUniqueName(_autoBackupTaskId);
 
+      // Get OnePlus/OEM optimized constraints
+      final constraints = await _getOptimizedConstraints(frequency);
+
       // Schedule new task
       await Workmanager().registerPeriodicTask(
         _autoBackupTaskId,
         _autoBackupTaskId,
         frequency: _getWorkManagerFrequency(frequency),
-        constraints: Constraints(
-          networkType: await _getNetworkConstraint(),
-          requiresBatteryNotLow: true,
-          requiresCharging: false,
-          requiresDeviceIdle: false,
-        ),
+        constraints: constraints,
         backoffPolicy: BackoffPolicy.exponential,
         backoffPolicyDelay: const Duration(minutes: 15),
         inputData: {
           'frequency': frequency.name,
           'scheduled_at': DateTime.now().toIso8601String(),
+          'is_oneplus': await _isOnePlusDevice(),
         },
       );
 
@@ -239,6 +238,29 @@ class BackupScheduler {
     }
   }
 
+  /// Get OnePlus/OEM optimized constraints
+  static Future<Constraints> _getOptimizedConstraints(BackupFrequency frequency) async {
+    final isOnePlus = await _isOnePlusDevice();
+
+    return Constraints(
+      networkType: await _getNetworkConstraint(),
+      requiresBatteryNotLow: !isOnePlus, // OnePlus: don't wait for high battery
+      requiresCharging: false,
+      requiresDeviceIdle: !isOnePlus, // OnePlus: don't wait for idle
+    );
+  }
+
+  /// Check if device is OnePlus
+  static Future<bool> _isOnePlusDevice() async {
+    try {
+      final deviceInfo = DeviceInfoPlugin();
+      final androidInfo = await deviceInfo.androidInfo;
+      return androidInfo.manufacturer.toLowerCase().contains('oneplus');
+    } catch (e) {
+      return false;
+    }
+  }
+
   /// Trigger manual backup (for testing or user action)
   static Future<void> triggerManualBackup() async {
     try {
@@ -248,10 +270,8 @@ class BackupScheduler {
 
       final backupService = BackupService();
       final success = await backupService.startBackup();
-      
+
       if (success) {
-        await updateLastBackupTime();
-        
         final notificationHelper = NotificationHelper();
         await notificationHelper.showBackupComplete(
           success: true,
@@ -304,6 +324,8 @@ Future<bool> _performBackgroundBackup(Map<String, dynamic>? inputData) async {
   try {
     if (kDebugMode) {
       print('📱 Starting background backup...');
+      final isOnePlus = inputData?['is_oneplus'] ?? false;
+      print('📱 OnePlus device: $isOnePlus');
     }
 
     // Initialize services
@@ -328,10 +350,8 @@ Future<bool> _performBackgroundBackup(Map<String, dynamic>? inputData) async {
 
     // Start backup
     final success = await backupService.startBackup();
-    
+
     if (success) {
-      await BackupScheduler.updateLastBackupTime();
-      
       await notificationHelper.showBackupComplete(
         success: true,
         message: 'Auto backup completed successfully',

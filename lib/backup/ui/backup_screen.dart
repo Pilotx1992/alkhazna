@@ -6,6 +6,7 @@ import '../../services/auth_service.dart';
 import '../services/backup_service.dart';
 import '../models/backup_status.dart';
 import '../utils/backup_scheduler.dart';
+import '../utils/oem_helper.dart';
 import 'backup_progress_sheet.dart';
 
 /// Enhanced WhatsApp-style backup screen with modern interface
@@ -67,6 +68,11 @@ class _BackupScreenState extends State<BackupScreen> {
         _currentUser = user;
         _isLoading = false;
       });
+
+      // Show OnePlus/OEM guidance if needed
+      if (mounted) {
+        await OEMHelper.showBackupGuidance(context);
+      }
     } catch (e) {
       setState(() {
         _errorMessage = 'Failed to load backup settings: $e';
@@ -177,6 +183,17 @@ class _BackupScreenState extends State<BackupScreen> {
     }
   }
 
+  Future<String> _getOnePlusGuidance() async {
+    if (await OEMHelper.requiresSpecialHandling()) {
+      final oemType = await OEMHelper.getOEMType();
+      if (oemType == OEMType.colorOS) {
+        return '• OnePlus devices: Enable "Auto-launch" in Settings → Battery → Battery Optimization\n'
+               '• Allow background activity to ensure reliable auto-backup\n';
+      }
+    }
+    return '';
+  }
+
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
@@ -189,6 +206,7 @@ class _BackupScreenState extends State<BackupScreen> {
         elevation: 0,
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.indigo,
+        automaticallyImplyLeading: false,
       ),
       body: _isLoading
           ? const Center(
@@ -308,6 +326,10 @@ class _BackupScreenState extends State<BackupScreen> {
                                 value: _isAutoBackupEnabled,
                                 onChanged: (value) async {
                                   if (value) {
+                                    // Check if OnePlus/OEM needs special handling
+                                    if (await OEMHelper.requiresSpecialHandling()) {
+                                      await OEMHelper.requestAutoStartPermission(context);
+                                    }
                                     await BackupScheduler.scheduleAutoBackup(_backupFrequency);
                                   } else {
                                     await BackupScheduler.cancelAutoBackup();
@@ -548,15 +570,22 @@ class _BackupScreenState extends State<BackupScreen> {
                             ],
                           ),
                           const SizedBox(height: 8),
-                          Text(
-                            '• Your data is encrypted with WhatsApp-style security\n'
-                            '• Backups include all income/expense entries and settings\n'
-                            '• Files are stored securely in your Google Drive app data\n'
-                            '• Automatic backups run in the background\n'
-                            '• You can restore your data on any device',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: Colors.blue[700],
-                            ),
+                          FutureBuilder<String>(
+                            future: _getOnePlusGuidance(),
+                            builder: (context, snapshot) {
+                              final onePlusGuidance = snapshot.data ?? '';
+                              return Text(
+                                '• Your data is encrypted with WhatsApp-style security\n'
+                                '• Backups include all income/expense entries and settings\n'
+                                '• Files are stored securely in your Google Drive app data\n'
+                                '• Automatic backups run in the background\n'
+                                '• You can restore your data on any device\n'
+                                '$onePlusGuidance',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: Colors.blue[700],
+                                ),
+                              );
+                            },
                           ),
                         ],
                       ),

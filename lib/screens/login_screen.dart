@@ -6,7 +6,7 @@ import '../models/auth_state.dart';
 import '../services/auth_service.dart';
 import 'signup_screen.dart';
 import 'home_screen.dart';
-import 'backup_screen.dart';
+import '../backup/ui/backup_screen.dart';
 import 'biometric_settings_screen.dart';
 
 /// Modern login screen with eye-comfort design
@@ -416,6 +416,11 @@ class _LoginScreenState extends State<LoginScreen>
                       : Icons.visibility_outlined,
                   color: const Color(0xFF757575),
                 ),
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                ),
+                splashColor: Colors.transparent,
+                highlightColor: Colors.transparent,
                 onPressed: () {
                   setState(() {
                     _isPasswordVisible = !_isPasswordVisible;
