@@ -122,14 +122,14 @@ class AuthService extends ChangeNotifier {
           // User exists, check if biometric is enabled and prompt
           if (user.biometricEnabled && biometricAvailable) {
             debugPrint('🔐 User has biometric enabled, setting state...');
-            _updateState(_authState.copyWith(
+            _updateState(_authState.unauthenticated().copyWith(
               currentUser: user,
               biometricAvailable: biometricAvailable,
             ));
           } else {
             debugPrint('🔑 User requires password auth, setting state...');
             // Show login screen for password authentication
-            _updateState(_authState.copyWith(
+            _updateState(_authState.unauthenticated().copyWith(
               currentUser: user,
               biometricAvailable: biometricAvailable,
             ));
