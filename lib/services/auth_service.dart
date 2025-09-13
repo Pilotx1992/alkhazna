@@ -392,11 +392,29 @@ class AuthService extends ChangeNotifier {
   /// Sign out
   Future<void> signOut() async {
     try {
+      debugPrint('🚪 Signing out user...');
+
+      // Clear current user from secure storage
       await _secureStorage.delete(key: _currentUserKey);
+      debugPrint('🗑️ Cleared current user from secure storage');
+
+      // Sign out from Google
       await _googleSignIn.signOut();
+      debugPrint('👋 Signed out from Google');
+
+      // Also disconnect to fully clear Google sign-in state (ignore if fails)
+      try {
+        await _googleSignIn.disconnect();
+        debugPrint('🔌 Disconnected from Google');
+      } catch (disconnectError) {
+        debugPrint('⚠️ Disconnect failed (non-critical): $disconnectError');
+      }
+
+      // Clear all stored authentication state
       _updateState(AuthState.initial().copyWith(biometricAvailable: _authState.biometricAvailable));
+      debugPrint('✅ Sign out completed');
     } catch (e) {
-      debugPrint('Signout error: $e');
+      debugPrint('💥 Signout error: $e');
     }
   }
 

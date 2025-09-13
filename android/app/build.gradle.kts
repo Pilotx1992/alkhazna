@@ -1,4 +1,3 @@
-
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -24,7 +23,7 @@ android {
     defaultConfig {
         applicationId = "com.example.alkhazna"
         minSdk = flutter.minSdkVersion
-    targetSdk = 36
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0.0"
     }
@@ -36,6 +35,14 @@ android {
     }
 }
 
+// ✅ ثابت دايمًا Alkhazna.apk
+android.applicationVariants.all {
+    outputs.all {
+        (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName =
+            "Alkhazna.apk"
+    }
+}
+
 flutter {
     source = "../.."
 }
@@ -43,7 +50,5 @@ flutter {
 dependencies {
     implementation(platform("com.google.firebase:firebase-bom:34.2.0"))
     implementation("com.google.firebase:firebase-analytics")
-    // Add any other Firebase libraries you need, without version numbers
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.2")
 }
-

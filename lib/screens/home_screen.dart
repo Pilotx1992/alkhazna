@@ -1,4 +1,4 @@
-import 'package:google_sign_in/google_sign_in.dart';
+import 'package:provider/provider.dart';
 import 'login_screen.dart';
 import '../backup/ui/backup_screen.dart';
 
@@ -7,6 +7,7 @@ import "package:shared_preferences/shared_preferences.dart";
 
 import "month_page.dart";
 import "../services/storage_service.dart";
+import "../services/auth_service.dart";
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -446,13 +447,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton.icon(
-                          onPressed: () {
-                            Navigator.push(
+                          onPressed: () async {
+                            await Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => const BackupScreen(),
                               ),
                             );
+                            // Refresh home screen data after returning from backup screen
+                            _loadTotals();
                           },
                           icon: const Icon(Icons.cloud_outlined, size: 20),
                           label: const Text('Backup '),
@@ -497,13 +500,9 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: const Icon(Icons.logout),
               tooltip: 'Sign Out',
               onPressed: () async {
-                final googleSignIn = GoogleSignIn(
-                  scopes: [
-                    'https://www.googleapis.com/auth/drive.file',
-                    'https://www.googleapis.com/auth/drive.appdata',  // Required for app data folder access
-                  ],
-                );
-                await googleSignIn.signOut();
+                // Use AuthService for proper sign out
+                final authService = Provider.of<AuthService>(context, listen: false);
+                await authService.signOut();
                 if (context.mounted) {
                   Navigator.of(context).pushAndRemoveUntil(
                     MaterialPageRoute(builder: (context) => const LoginScreen()),

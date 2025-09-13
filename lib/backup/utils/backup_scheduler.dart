@@ -19,7 +19,6 @@ class BackupScheduler {
     try {
       await Workmanager().initialize(
         callbackDispatcher,
-        isInDebugMode: kDebugMode,
       );
 
       if (kDebugMode) {
@@ -45,21 +44,36 @@ class BackupScheduler {
 
       // Get OnePlus/OEM optimized constraints
       final constraints = await _getOptimizedConstraints(frequency);
+      final isOnePlus = await _isOnePlusDevice();
 
-      // Schedule new task
-      await Workmanager().registerPeriodicTask(
-        _autoBackupTaskId,
-        _autoBackupTaskId,
-        frequency: _getWorkManagerFrequency(frequency),
-        constraints: constraints,
-        backoffPolicy: BackoffPolicy.exponential,
-        backoffPolicyDelay: const Duration(minutes: 15),
-        inputData: {
-          'frequency': frequency.name,
-          'scheduled_at': DateTime.now().toIso8601String(),
-          'is_oneplus': await _isOnePlusDevice(),
-        },
-      );
+      // Schedule new task (avoid backoff on idle mode jobs)
+      if (constraints.requiresDeviceIdle == true) {
+        await Workmanager().registerPeriodicTask(
+          _autoBackupTaskId,
+          _autoBackupTaskId,
+          frequency: _getWorkManagerFrequency(frequency),
+          constraints: constraints,
+          inputData: {
+            'frequency': frequency.name,
+            'scheduled_at': DateTime.now().toIso8601String(),
+            'is_oneplus': isOnePlus,
+          },
+        );
+      } else {
+        await Workmanager().registerPeriodicTask(
+          _autoBackupTaskId,
+          _autoBackupTaskId,
+          frequency: _getWorkManagerFrequency(frequency),
+          constraints: constraints,
+          backoffPolicy: BackoffPolicy.exponential,
+          backoffPolicyDelay: const Duration(minutes: 15),
+          inputData: {
+            'frequency': frequency.name,
+            'scheduled_at': DateTime.now().toIso8601String(),
+            'is_oneplus': isOnePlus,
+          },
+        );
+      }
 
 
       // Save settings
