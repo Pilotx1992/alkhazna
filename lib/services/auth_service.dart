@@ -466,7 +466,7 @@ class AuthService extends ChangeNotifier {
   /// Check if user exists
   Future<bool> _userExists(String username, String email) async {
     if (_usersBox == null) return false;
-    
+
     for (final user in _usersBox!.values) {
       if (user.username.toLowerCase() == username.toLowerCase() ||
           user.email.toLowerCase() == email.toLowerCase()) {
@@ -474,6 +474,47 @@ class AuthService extends ChangeNotifier {
       }
     }
     return false;
+  }
+
+  /// Check if user exists by username or email (public method for forgot password)
+  Future<bool> checkUserExists(String usernameOrEmail) async {
+    if (_usersBox == null) return false;
+
+    final String searchTerm = usernameOrEmail.toLowerCase();
+    for (final user in _usersBox!.values) {
+      if (user.username.toLowerCase() == searchTerm ||
+          user.email.toLowerCase() == searchTerm) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Reset password for a user
+  Future<bool> resetPassword({
+    required String usernameOrEmail,
+    required String newPassword,
+  }) async {
+    try {
+      // Find user
+      final User? user = await _findUser(usernameOrEmail.trim());
+      if (user == null) {
+        return false;
+      }
+
+      // Hash new password
+      final String newPasswordHash = _hashPassword(newPassword);
+
+      // Update password
+      user.passwordHash = newPasswordHash;
+      await user.save(); // Save to Hive
+
+      return true;
+
+    } catch (e) {
+      debugPrint('Reset password error: $e');
+      return false;
+    }
   }
 
   /// Find user by username or email

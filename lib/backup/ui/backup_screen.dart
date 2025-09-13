@@ -454,7 +454,7 @@ class _BackupScreenState extends State<BackupScreen> {
                               ] else ...[
                                 Icon(Icons.backup),
                                 const SizedBox(width: 8),
-                                Text('Create Backup Now'),
+                                Text('Backup Now'),
                               ],
                             ],
                           ),
@@ -492,7 +492,7 @@ class _BackupScreenState extends State<BackupScreen> {
                               ] else ...[
                                 Icon(Icons.restore),
                                 const SizedBox(width: 8),
-                                Text('Restore from Backup'),
+                                Text('Restore'),
                               ],
                             ],
                           ),

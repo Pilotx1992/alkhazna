@@ -37,14 +37,19 @@ dependencies:
   # Background Tasks
   workmanager: ^0.9.0+3
   
-  # Utilities
-  connectivity_plus: ^7.0.0
+  # Encryption (enhanced)
+  cryptography: ^2.7.0
+  
+  # Device & Network
+  connectivity_plus: ^6.0.3
   device_info_plus: ^10.1.0
   permission_handler: ^11.3.1
   
-  # UI Components & Animations
-  percent_indicator: ^4.2.5
+  # UI Components
+  percent_indicator: ^4.2.3
   flutter_local_notifications: ^17.1.2
+  
+  # Utilities
   uuid: ^4.4.0
   flutter_svg: ^2.0.7
   lottie: ^2.6.0
@@ -57,10 +62,12 @@ dependencies:
   
   # Form Validation
   validators: ^3.0.0
-  
+
   # State Management
   provider: ^6.1.2
-  cryptography: ^2.7.0
+
+  # Email Services
+  mailer: ^6.0.1
 
 dev_dependencies:
   flutter_test:

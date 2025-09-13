@@ -8,6 +8,7 @@ import 'signup_screen.dart';
 import 'home_screen.dart';
 import '../backup/ui/backup_screen.dart';
 import 'biometric_settings_screen.dart';
+import 'forgot_password_screen.dart';
 
 /// Modern login screen with eye-comfort design
 class LoginScreen extends StatefulWidget {
@@ -492,7 +493,25 @@ class _LoginScreenState extends State<LoginScreen>
         // Forgot password
         TextButton(
           onPressed: () {
-            // TODO: Implement forgot password
+            Navigator.push(
+              context,
+              PageRouteBuilder(
+                pageBuilder: (context, animation, secondaryAnimation) => const ForgotPasswordScreen(),
+                transitionDuration: const Duration(milliseconds: 300),
+                transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                  return SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(1.0, 0.0),
+                      end: Offset.zero,
+                    ).animate(CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeInOutCubic,
+                    )),
+                    child: child,
+                  );
+                },
+              ),
+            );
           },
           child: const Text(
             'Forgot Password?',
@@ -513,7 +532,7 @@ class _LoginScreenState extends State<LoginScreen>
         // Login button
         SizedBox(
           width: double.infinity,
-          height: 48,
+          height: 55,
           child: ElevatedButton(
             onPressed: authState.isLoading ? null : _handleLogin,
             style: ElevatedButton.styleFrom(
@@ -536,6 +555,7 @@ class _LoginScreenState extends State<LoginScreen>
                   )
                 : const Text(
                     'Sign In',
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,

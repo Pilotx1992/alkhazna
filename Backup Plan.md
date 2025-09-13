@@ -1,5 +1,5 @@
 # Product Requirements Document (PRD) - FINAL VERSION
-## WhatsApp-Style Backup & Restore System for AlKhazna (Flutter/Android)
+## Backup & Restore System for AlKhazna (Flutter/Android)
 
 ### 1. Executive Summary
 
