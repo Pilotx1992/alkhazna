@@ -331,9 +331,9 @@ class _IncomeScreenState extends State<IncomeScreen> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.file_download_outlined, color: Colors.deepOrange),
+                    icon: const Icon(Icons.send, color: Colors.green),
                     onPressed: _shareZeroAmountNames,
-                    tooltip: 'Export Zero Names',
+                    tooltip: 'Share Zero Names',
                     style: IconButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       splashFactory: NoSplash.splashFactory,
