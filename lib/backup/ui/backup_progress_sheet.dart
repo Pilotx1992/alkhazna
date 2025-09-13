@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
 import '../models/backup_status.dart';
@@ -9,11 +10,13 @@ import '../utils/notification_helper.dart';
 class BackupProgressSheet extends StatefulWidget {
   final bool isRestore;
   final VoidCallback? onRestoreComplete;
+  final VoidCallback? onBackupComplete;
 
   const BackupProgressSheet({
     super.key,
     this.isRestore = false,
     this.onRestoreComplete,
+    this.onBackupComplete,
   });
 
   @override
@@ -26,6 +29,7 @@ class _BackupProgressSheetState extends State<BackupProgressSheet> {
   
   late final bool _isRestore;
   bool _isOperationInProgress = false;
+  bool _hasCalledCallback = false;
   OperationProgress _currentProgress = const OperationProgress(
     percentage: 0,
     backupStatus: BackupStatus.idle,
@@ -62,6 +66,28 @@ class _BackupProgressSheetState extends State<BackupProgressSheet> {
         _currentProgress = _backupService.currentProgress;
       });
 
+      // Check if backup just completed or failed and handle accordingly
+      if (!_isRestore && !_hasCalledCallback) {
+        if (_currentProgress.backupStatus == BackupStatus.completed &&
+            _currentProgress.percentage == 100) {
+          _hasCalledCallback = true;
+          // Give a small delay to ensure backup time is saved
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (widget.onBackupComplete != null) {
+              widget.onBackupComplete!();
+            }
+            if (mounted) {
+              Navigator.pop(context);
+            }
+          });
+        } else if (_currentProgress.backupStatus == BackupStatus.failed) {
+          _hasCalledCallback = true;
+          if (mounted) {
+            _showErrorDialog('Backup failed. Please try again.');
+          }
+        }
+      }
+
       // Update notifications
       if (_isRestore && _currentProgress.restoreStatus != null) {
         _notificationHelper.showRestoreProgress(
@@ -85,29 +111,26 @@ class _BackupProgressSheetState extends State<BackupProgressSheet> {
     });
 
     try {
-      final success = await _backupService.startBackup();
-      
-      await _notificationHelper.showBackupComplete(
-        success: success,
-        message: success ? 'Backup completed successfully' : 'Backup failed',
-      );
+      // Just start the backup, don't handle completion here
+      // Completion is handled through the progress listener
+      await _backupService.startBackup();
 
-      if (mounted) {
-        if (success) {
-          _showSuccessAndClose('Backup completed successfully!');
-        } else {
-          _showErrorDialog('Backup failed. Please try again.');
-        }
+      if (kDebugMode) {
+        print('🐛 DEBUG: Backup operation started');
       }
     } catch (e) {
+      if (kDebugMode) {
+        print('🐛 DEBUG: Error starting backup: $e');
+      }
+
       await _notificationHelper.showBackupComplete(
         success: false,
-        message: 'Backup failed',
+        message: 'Failed to start backup',
         details: e.toString(),
       );
 
       if (mounted) {
-        _showErrorDialog('Backup failed: $e');
+        _showErrorDialog('Failed to start backup: $e');
       }
     } finally {
       setState(() {

@@ -84,7 +84,18 @@ class _BackupScreenState extends State<BackupScreen> {
         enableDrag: false,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
-        builder: (context) => const BackupProgressSheet(),
+        builder: (context) => BackupProgressSheet(
+          onBackupComplete: () async {
+            // Immediately refresh the last backup time after successful backup
+            await _loadSettings();
+            if (mounted) {
+              setState(() {
+                _successMessage = 'Backup created successfully!';
+              });
+              _clearMessageAfterDelay();
+            }
+          },
+        ),
       );
 
       // Start backup
@@ -225,30 +236,31 @@ class _BackupScreenState extends State<BackupScreen> {
                                         color: Colors.grey[600],
                                       ),
                                     ),
+                                    if (_lastBackupTime != null) ...[
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.schedule,
+                                            size: 14,
+                                            color: Colors.green,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            'Last backup: ${_formatDateTime(_lastBackupTime!)}',
+                                            style: theme.textTheme.bodySmall?.copyWith(
+                                              color: Colors.green,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),
                             ],
                           ),
-                          if (_lastBackupTime != null) ...[
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.schedule,
-                                  size: 16,
-                                  color: Colors.green,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Last backup: ${_formatDateTime(_lastBackupTime!)}',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: Colors.green,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
                         ],
                       ),
                     ),

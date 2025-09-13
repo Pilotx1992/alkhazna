@@ -11,6 +11,7 @@ import '../models/restore_result.dart';
 import 'key_manager.dart';
 import 'encryption_service.dart';
 import 'google_drive_service.dart';
+import '../utils/backup_scheduler.dart';
 
 /// Main backup service for WhatsApp-style backup system
 class BackupService extends ChangeNotifier {
@@ -115,7 +116,10 @@ class BackupService extends ChangeNotifier {
       );
 
       _updateProgress(100, BackupStatus.completed, 'Backup completed successfully!');
-      
+
+      // Update last backup time only after successful backup
+      await BackupScheduler.updateLastBackupTime();
+
       if (kDebugMode) {
         print('✅ Backup completed successfully');
         print('   Backup ID: $backupId');
@@ -388,6 +392,7 @@ class BackupService extends ChangeNotifier {
         if (kDebugMode) {
           print('⚠️ No data to restore (empty backup)');
         }
+
         return RestoreResult.success(
           incomeEntries: 0,
           outcomeEntries: 0,
