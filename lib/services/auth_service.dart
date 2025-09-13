@@ -121,18 +121,16 @@ class AuthService extends ChangeNotifier {
           debugPrint('✅ User found: ${user.username}');
           // User exists, check if biometric is enabled and prompt
           if (user.biometricEnabled && biometricAvailable) {
-            debugPrint('🔐 User has biometric enabled, setting state...');
+            debugPrint('🔐 User has biometric enabled, setting state for biometric prompt...');
             _updateState(_authState.unauthenticated().copyWith(
               currentUser: user,
               biometricAvailable: biometricAvailable,
             ));
           } else {
-            debugPrint('🔑 User requires password auth, setting state...');
-            // Show login screen for password authentication
-            _updateState(_authState.unauthenticated().copyWith(
-              currentUser: user,
-              biometricAvailable: biometricAvailable,
-            ));
+            debugPrint('🔑 User doesn\'t require biometric, auto-authenticating...');
+            // Auto-authenticate user without biometric
+            user.updateLastLogin();
+            _updateState(_authState.authenticated(user, AuthMethod.password));
           }
         } else {
           debugPrint('❌ User not found in Hive, clearing stored ID...');
