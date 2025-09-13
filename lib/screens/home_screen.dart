@@ -1,7 +1,6 @@
 import 'package:google_sign_in/google_sign_in.dart';
 import 'login_screen.dart';
-import 'backup_screen.dart';
-import 'settings_screen.dart';
+import '../backup/ui/backup_screen.dart';
 
 import "package:flutter/material.dart";
 import "package:shared_preferences/shared_preferences.dart";
@@ -38,8 +37,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final StorageService _storageService = StorageService();
   
-  double _totalIncome = 0;
-  double _totalOutcome = 0;
   bool _isTotalsLoading = true;
   
   // Overall totals across all months
@@ -98,16 +95,12 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _isTotalsLoading = true);
     try {
       // Load data for the selected month and year
-      final monthIncomeEntries = await _storageService.getIncomeEntries(_selectedMonth, _selectedYear);
-      final monthOutcomeEntries = await _storageService.getOutcomeEntries(_selectedMonth, _selectedYear);
       
       // Load overall totals across all months
       final allIncomeEntries = await _storageService.getAllIncomeEntries();
       final allOutcomeEntries = await _storageService.getAllOutcomeEntries();
       
       setState(() {
-        _totalIncome = monthIncomeEntries.fold(0.0, (sum, entry) => sum + entry.amount);
-        _totalOutcome = monthOutcomeEntries.fold(0.0, (sum, entry) => sum + entry.amount);
         
         _overallTotalIncome = allIncomeEntries.fold(0.0, (sum, entry) => sum + entry.amount);
         _overallTotalOutcome = allOutcomeEntries.fold(0.0, (sum, entry) => sum + entry.amount);
@@ -449,52 +442,29 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      Row(
-                        children: [
-                          // Backup Button
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () {
-                                // Backup functionality will be re-implemented in Phase 2
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Backup feature coming soon!')),
-                                );
-                              },
-                              icon: const Icon(Icons.backup, size: 20),
-                              label: const Text('Backup'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: colorScheme.primary,
-                                foregroundColor: colorScheme.onPrimary,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
+                      // Backup & Restore Button
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const BackupScreen(),
                               ),
+                            );
+                          },
+                          icon: const Icon(Icons.cloud_outlined, size: 20),
+                          label: const Text('Backup '),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: colorScheme.primary,
+                            foregroundColor: colorScheme.onPrimary,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          // Restore Button
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () {
-                                // Restore functionality will be re-implemented in Phase 2
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Restore feature coming soon!')),
-                                );
-                              },
-                              icon: const Icon(Icons.cloud_download, size: 20),
-                              label: const Text('Restore'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: colorScheme.secondary,
-                                foregroundColor: colorScheme.onSecondary,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ],
                   ),
@@ -523,18 +493,6 @@ class _HomeScreenState extends State<HomeScreen> {
           backgroundColor: colorScheme.surface,
           elevation: 0,
           actions: [
-            IconButton(
-              icon: const Icon(Icons.cloud_outlined),
-              tooltip: 'Backup & Restore',
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const BackupScreen(),
-                  ),
-                );
-              },
-            ),
             IconButton(
               icon: const Icon(Icons.logout),
               tooltip: 'Sign Out',
