@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/income_entry.dart';
 import '../services/storage_service.dart';
+import '../services/pdf_service.dart';
 import '../widgets/income_row.dart';
 
 class IncomeScreen extends StatefulWidget {
@@ -64,21 +65,20 @@ class _IncomeScreenState extends State<IncomeScreen> {
     setState(() => _totalAmount = total);
   }
 
-  void _clearAmounts() async {
-    final confirmed = await _showConfirmDialog(
-      'Clear All Amounts',
-      'Are you sure to clear all amount values?',
-      'Clear',
-    );
-
-    if (confirmed) {
-      setState(() {
-        for (var entry in _incomeEntries) {
-          entry.amount = 0;
-        }
-        _calculateTotal();
-      });
-      _saveEntries();
+  void _shareZeroAmountNames() async {
+    try {
+      await PdfService.shareZeroAmountNames(
+        incomeEntries: _incomeEntries,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to generate PDF: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -331,9 +331,9 @@ class _IncomeScreenState extends State<IncomeScreen> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close, color: Colors.grey),
-                    onPressed: _clearAmounts,
-                    tooltip: 'Clear Amounts',
+                    icon: const Icon(Icons.file_download_outlined, color: Colors.deepOrange),
+                    onPressed: _shareZeroAmountNames,
+                    tooltip: 'Export Zero Names',
                     style: IconButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       splashFactory: NoSplash.splashFactory,

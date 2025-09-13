@@ -8,8 +8,8 @@ class DeleteLastEntryIntent extends Intent {
   const DeleteLastEntryIntent();
 }
 
-class ClearAmountsIntent extends Intent {
-  const ClearAmountsIntent();
+class ShareZeroNamesIntent extends Intent {
+  const ShareZeroNamesIntent();
 }
 
 class TabNavigationIntent extends Intent {

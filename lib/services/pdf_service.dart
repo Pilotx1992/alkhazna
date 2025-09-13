@@ -213,6 +213,93 @@ class PdfService {
     );
   }
 
+  /// Share names of income entries with zero amounts as PDF
+  static Future<void> shareZeroAmountNames({
+    required List<IncomeEntry> incomeEntries,
+  }) async {
+    // Filter entries with zero amounts and non-empty names
+    final zeroAmountEntries = incomeEntries
+        .where((entry) => entry.amount == 0 && entry.name.trim().isNotEmpty)
+        .toList();
+
+    if (zeroAmountEntries.isEmpty) {
+      // Show message if no zero amount entries found
+      return;
+    }
+
+    final doc = pw.Document();
+    final font = pw.Font.ttf(
+        await rootBundle.load('assets/fonts/NotoSansArabic-Regular.ttf'));
+    final boldFont = pw.Font.ttf(await rootBundle
+        .load('assets/fonts/NotoSansArabic-VariableFont_wdth,wght.ttf'));
+
+    doc.addPage(
+      pw.Page(
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // Header
+              pw.Text(
+                'Al Khazna',
+                style: pw.TextStyle(
+                  font: boldFont,
+                  fontSize: 24,
+                  color: PdfColors.indigo,
+                ),
+              ),
+              pw.SizedBox(height: 10),
+              pw.Text(
+                'Income Sources - Zero Amounts',
+                style: pw.TextStyle(
+                  font: boldFont,
+                  fontSize: 18,
+                  color: PdfColors.black,
+                ),
+              ),
+              pw.SizedBox(height: 20),
+
+              // Simple list of names
+              ...zeroAmountEntries.asMap().entries.map((entry) {
+                final index = entry.key + 1;
+                final incomeEntry = entry.value;
+                return pw.Padding(
+                  padding: const pw.EdgeInsets.symmetric(vertical: 2),
+                  child: pw.Text(
+                    '$index. ${incomeEntry.name}',
+                    style: pw.TextStyle(
+                      font: font,
+                      fontSize: 12,
+                      color: PdfColors.black,
+                    ),
+                  ),
+                );
+              }),
+
+              pw.Spacer(),
+
+              // Footer
+              pw.Text(
+                'Generated: ${DateTime.now().toString().split(' ')[0]}',
+                style: pw.TextStyle(
+                  font: font,
+                  fontSize: 10,
+                  color: PdfColors.grey,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    // Share the PDF
+    await Printing.sharePdf(
+      bytes: await doc.save(),
+      filename: 'zero_amount_names.pdf',
+    );
+  }
+
   static void _addPaginatedTablePages<T>({
     required pw.Document doc,
     required List<T> entries,
