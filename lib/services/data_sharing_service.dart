@@ -8,7 +8,7 @@ import '../models/outcome_entry.dart';
 import 'storage_service.dart';
 
 class DataSharingService {
-  static const String _fileExtension = '.alkhazna';
+  static const String _fileExtension = '.NOG';
 
   static Future<void> exportMonthData({
     required String month,
@@ -42,10 +42,12 @@ class DataSharingService {
         }).toList(),
       };
 
-      // Create and share file
+      // Create and share file with current date
+      final now = DateTime.now();
+      final dateString = '${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}';
       await _createAndShareFile(
         data: exportData,
-        filename: 'AlKhazna_${month}_$year',
+        filename: dateString,
       );
     } catch (e) {
       throw Exception('Failed to export month data: $e');
@@ -71,10 +73,12 @@ class DataSharingService {
         }
       };
 
-      // Create and share file
+      // Create and share file with current date
+      final now = DateTime.now();
+      final dateString = '${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}';
       await _createAndShareFile(
         data: exportData,
-        filename: 'AlKhazna_AllData_${DateTime.now().millisecondsSinceEpoch}',
+        filename: dateString,
       );
     } catch (e) {
       throw Exception('Failed to export all data: $e');

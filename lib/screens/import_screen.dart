@@ -157,7 +157,7 @@ class _ImportScreenState extends State<ImportScreen> {
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    'Select an AlKhazna data file (.alkhazna) to import income and expense data into your app.',
+                    'Select an AlKhazna data file (.NOG) to import income and expense data into your app.',
                     style: TextStyle(
                       fontSize: 16,
                       color: Colors.grey,
