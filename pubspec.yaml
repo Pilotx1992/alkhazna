@@ -1,7 +1,7 @@
 name: al_khazna
 description: A PRO app for tracking monthly income and expenses.
 publish_to: 'Pilot X'
-version: 3.0.0+3
+version: 3.0.0
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

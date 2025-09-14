@@ -181,7 +181,6 @@ class OEMHelper {
       case OEMType.colorOS:
       case OEMType.funTouchOS:
       case OEMType.emui:
-        return 'Manual backup recommended due to aggressive battery optimization';
       case OEMType.standard:
       default:
         return 'Weekly auto-backup recommended';

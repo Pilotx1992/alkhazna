@@ -23,8 +23,7 @@ class _ImportScreenState extends State<ImportScreen> {
       });
 
       final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['alkhazna'],
+        type: FileType.any,
       );
 
       if (result != null && result.files.isNotEmpty) {
@@ -144,7 +143,7 @@ class _ImportScreenState extends State<ImportScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Padding(
+          : SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -248,6 +247,9 @@ class _ImportScreenState extends State<ImportScreen> {
                         ),
                       ),
                     ),
+
+                    // Add bottom padding to prevent overflow
+                    const SizedBox(height: 50),
                   ],
                 ],
               ),

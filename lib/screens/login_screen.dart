@@ -469,29 +469,36 @@ class _LoginScreenState extends State<LoginScreen>
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         // Remember me
-        Row(
-          children: [
-            Checkbox(
-              value: _rememberMe,
-              onChanged: (value) {
-                setState(() {
-                  _rememberMe = value ?? false;
-                });
-              },
-              activeColor: const Color(0xFF2E7D32),
-            ),
-            const Text(
-              'Remember me',
-              style: TextStyle(
-                color: Color(0xFF757575),
-                fontSize: 14,
+        Flexible(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Checkbox(
+                value: _rememberMe,
+                onChanged: (value) {
+                  setState(() {
+                    _rememberMe = value ?? false;
+                  });
+                },
+                activeColor: const Color(0xFF2E7D32),
               ),
-            ),
-          ],
+              const Flexible(
+                child: Text(
+                  'Remember me',
+                  style: TextStyle(
+                    color: Color(0xFF757575),
+                    fontSize: 14,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
         ),
-        
+
         // Forgot password
-        TextButton(
+        Flexible(
+          child: TextButton(
           onPressed: () {
             Navigator.push(
               context,
@@ -521,6 +528,7 @@ class _LoginScreenState extends State<LoginScreen>
               fontWeight: FontWeight.w500,
             ),
           ),
+        ),
         ),
       ],
     );
