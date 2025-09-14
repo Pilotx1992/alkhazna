@@ -69,6 +69,8 @@ class _IncomeScreenState extends State<IncomeScreen> {
     try {
       await PdfService.shareZeroAmountNames(
         incomeEntries: _incomeEntries,
+        month: widget.month,
+        year: widget.year,
       );
     } catch (e) {
       if (mounted) {
@@ -81,6 +83,7 @@ class _IncomeScreenState extends State<IncomeScreen> {
       }
     }
   }
+
 
   void _addNewEntry() {
     final newEntry = IncomeEntry(
@@ -350,7 +353,6 @@ class _IncomeScreenState extends State<IncomeScreen> {
                       overlayColor: Colors.transparent,
                     ),
                   ),
-                 
                 ],
               ),
             ),

@@ -113,8 +113,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -458,7 +456,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             _loadTotals();
                           },
                           icon: const Icon(Icons.cloud_outlined, size: 20),
-                          label: const Text('Backup '),
+                          label: const Text('Backup & share Data'),
                           style: FilledButton.styleFrom(
                             backgroundColor: colorScheme.primary,
                             foregroundColor: colorScheme.onPrimary,
@@ -518,6 +516,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
 
   /// Check for backup and show restore dialog if available
   /// Temporarily disabled - will be re-implemented in Phase 2

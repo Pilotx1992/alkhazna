@@ -86,4 +86,32 @@ class StorageService {
     }
     return allEntries;
   }
+
+  // Returns all income data organized by month/year keys
+  Future<Map<String, List<IncomeEntry>>> getAllIncomeData() async {
+    final box = await Hive.openBox<List<dynamic>>(incomeBoxName);
+    Map<String, List<IncomeEntry>> allData = {};
+
+    for (var key in box.keys) {
+      final rawList = box.get(key);
+      if (rawList != null) {
+        allData[key] = rawList.map((item) => item as IncomeEntry).toList();
+      }
+    }
+    return allData;
+  }
+
+  // Returns all outcome data organized by month/year keys
+  Future<Map<String, List<OutcomeEntry>>> getAllOutcomeData() async {
+    final box = await Hive.openBox<List<dynamic>>(outcomeBoxName);
+    Map<String, List<OutcomeEntry>> allData = {};
+
+    for (var key in box.keys) {
+      final rawList = box.get(key);
+      if (rawList != null) {
+        allData[key] = rawList.map((item) => item as OutcomeEntry).toList();
+      }
+    }
+    return allData;
+  }
 }

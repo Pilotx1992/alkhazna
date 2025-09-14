@@ -142,6 +142,7 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
   }
 
 
+
   void _deleteEntryById(String entryId) {
     final entryIndex = _outcomeEntries.indexWhere((entry) => entry.id == entryId);
     if (entryIndex == -1) return; // Entry not found

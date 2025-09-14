@@ -8,6 +8,8 @@ import '../models/backup_status.dart';
 import '../utils/backup_scheduler.dart';
 import '../utils/oem_helper.dart';
 import 'backup_progress_sheet.dart';
+import '../../services/data_sharing_service.dart';
+import '../../screens/import_screen.dart';
 
 /// Enhanced WhatsApp-style backup screen with modern interface
 class BackupScreen extends StatefulWidget {
@@ -82,6 +84,10 @@ class _BackupScreenState extends State<BackupScreen> {
   }
 
   Future<void> _createBackup() async {
+    // Show confirmation dialog
+    final confirmed = await _showBackupConfirmationDialog();
+    if (!confirmed) return;
+
     try {
       // Show progress sheet
       showModalBottomSheet(
@@ -114,6 +120,10 @@ class _BackupScreenState extends State<BackupScreen> {
   }
 
   Future<void> _restoreBackup() async {
+    // Show confirmation dialog
+    final confirmed = await _showRestoreConfirmationDialog();
+    if (!confirmed) return;
+
     // Show progress sheet
     showModalBottomSheet(
       context: context,
@@ -143,6 +153,230 @@ class _BackupScreenState extends State<BackupScreen> {
         });
       }
     });
+  }
+
+  Future<void> _showExportOptions() async {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Export Data'),
+          content: const Text('Choose what data to export:'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _showMonthSelector();
+              },
+              child: const Text('Export Month'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _exportAllData();
+              },
+              child: const Text('Export All Data'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showMonthSelector() async {
+    final currentDate = DateTime.now();
+    final selectedDate = await showDatePicker(
+      context: context,
+      initialDate: currentDate,
+      firstDate: DateTime(currentDate.year - 5),
+      lastDate: DateTime(currentDate.year + 1),
+      helpText: 'Select Month to Export',
+      fieldLabelText: 'Month/Year',
+    );
+
+    if (selectedDate != null) {
+      final monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ];
+      final monthName = monthNames[selectedDate.month - 1];
+      await _exportMonthData(monthName, selectedDate.year);
+    }
+  }
+
+  Future<void> _exportMonthData(String month, int year) async {
+    try {
+      await DataSharingService.exportMonthData(month: month, year: year);
+      if (mounted) {
+        setState(() {
+          _successMessage = 'Month data exported successfully! ($month $year)';
+        });
+        _clearMessageAfterDelay();
+      }
+    } catch (e) {
+      if (mounted) {
+        final errorMessage = e.toString();
+        if (errorMessage.contains('File saved successfully')) {
+          // Show success dialog with file location info
+          _showFileLocationDialog(errorMessage.replaceFirst('Exception: ', ''));
+        } else {
+          setState(() {
+            _errorMessage = 'Failed to export month data: $e';
+          });
+          _clearMessageAfterDelay();
+        }
+      }
+    }
+  }
+
+  Future<void> _exportAllData() async {
+    try {
+      await DataSharingService.exportAllData();
+      if (mounted) {
+        setState(() {
+          _successMessage = 'All data exported successfully!';
+        });
+        _clearMessageAfterDelay();
+      }
+    } catch (e) {
+      if (mounted) {
+        final errorMessage = e.toString();
+        if (errorMessage.contains('File saved successfully')) {
+          // Show success dialog with file location info
+          _showFileLocationDialog(errorMessage.replaceFirst('Exception: ', ''));
+        } else {
+          setState(() {
+            _errorMessage = 'Failed to export data: $e';
+          });
+          _clearMessageAfterDelay();
+        }
+      }
+    }
+  }
+
+  Future<void> _importData() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const ImportScreen(),
+      ),
+    );
+    // Refresh backup screen data if import was successful
+    if (result == true && mounted) {
+      setState(() {
+        _successMessage = 'Data imported successfully!';
+      });
+      _clearMessageAfterDelay();
+      await _loadSettings(); // Refresh the screen
+    }
+  }
+
+  void _showFileLocationDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.green),
+              const SizedBox(width: 8),
+              Text('Export Successful'),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(message),
+                const SizedBox(height: 16),
+                Text(
+                  'You can now manually share this file or copy it to your desired location.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<bool> _showBackupConfirmationDialog() async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.backup, color: Colors.indigo),
+              const SizedBox(width: 8),
+              Text('Confirm Backup'),
+            ],
+          ),
+          content: Text('Create a backup of your data to Google Drive?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.indigo,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Backup'),
+            ),
+          ],
+        );
+      },
+    ) ?? false;
+  }
+
+  Future<bool> _showRestoreConfirmationDialog() async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.restore, color: Colors.orange),
+              const SizedBox(width: 8),
+              Text('Confirm Restore'),
+            ],
+          ),
+          content: Text('This will replace your current data with the backup from Google Drive. Continue?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Restore'),
+            ),
+          ],
+        );
+      },
+    ) ?? false;
   }
 
   String _formatDateTime(DateTime dateTime) {
@@ -424,81 +658,181 @@ class _BackupScreenState extends State<BackupScreen> {
 
                   const SizedBox(height: 20),
 
-                  // Manual Backup Actions
-                  Column(
-                    children: [
-                      // Create Backup Button
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _backupService.isBackupInProgress ? null : _createBackup,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.indigo,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                  // Cloud Backup Actions Section
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Cloud Backup',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                          const SizedBox(height: 16),
+
+                          // Create Backup Button
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: _backupService.isBackupInProgress ? null : _createBackup,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.indigo,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  if (_backupService.isBackupInProgress) ...[
+                                    SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text('Creating Backup...'),
+                                  ] else ...[
+                                    Icon(Icons.backup),
+                                    const SizedBox(width: 8),
+                                    Text('Backup Now'),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 12),
+
+                          // Restore Backup Button
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton(
+                              onPressed: (_backupService.isBackupInProgress || _backupService.isRestoreInProgress)
+                                  ? null
+                                  : _restoreBackup,
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.indigo,
+                                side: BorderSide(color: Colors.indigo),
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  if (_backupService.isRestoreInProgress) ...[
+                                    SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.indigo),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text('Restoring...'),
+                                  ] else ...[
+                                    Icon(Icons.restore),
+                                    const SizedBox(width: 8),
+                                    Text('Restore'),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Data Management Section
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
                             children: [
-                              if (_backupService.isBackupInProgress) ...[
-                                SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                  ),
+                              Icon(
+                                Icons.folder_shared,
+                                size: 24,
+                                color: Colors.orange,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Data Management',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
                                 ),
-                                const SizedBox(width: 8),
-                                Text('Creating Backup...'),
-                              ] else ...[
-                                Icon(Icons.backup),
-                                const SizedBox(width: 8),
-                                Text('Backup Now'),
-                              ],
+                              ),
                             ],
                           ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      // Restore Backup Button
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton(
-                          onPressed: (_backupService.isBackupInProgress || _backupService.isRestoreInProgress) 
-                              ? null 
-                              : _restoreBackup,
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.indigo,
-                            side: BorderSide(color: Colors.indigo),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Export and import your data files for sharing or migration',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: Colors.grey[600],
+                            ),
                           ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              if (_backupService.isRestoreInProgress) ...[
-                                SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.indigo),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Text('Restoring...'),
-                              ] else ...[
-                                Icon(Icons.restore),
-                                const SizedBox(width: 8),
-                                Text('Restore'),
-                              ],
-                            ],
+                          const SizedBox(height: 16),
+
+                          // Export Data Button (with options)
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton(
+                              onPressed: (_backupService.isBackupInProgress || _backupService.isRestoreInProgress)
+                                  ? null
+                                  : _showExportOptions,
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.orange,
+                                side: BorderSide(color: Colors.orange),
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.file_upload),
+                                  const SizedBox(width: 8),
+                                  Text('Export Data'),
+                                ],
+                              ),
+                            ),
                           ),
-                        ),
+
+                          const SizedBox(height: 12),
+
+                          // Import Data Button
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton(
+                              onPressed: (_backupService.isBackupInProgress || _backupService.isRestoreInProgress)
+                                  ? null
+                                  : _importData,
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.teal,
+                                side: BorderSide(color: Colors.teal),
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.file_download),
+                                  const SizedBox(width: 8),
+                                  Text('Import Data'),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
 
                   const SizedBox(height: 20),
@@ -548,49 +882,6 @@ class _BackupScreenState extends State<BackupScreen> {
                     const SizedBox(height: 16),
                   ],
 
-                  // Information Card
-                  Card(
-                    color: Colors.blue[50],
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(Icons.info, color: Colors.blue),
-                              const SizedBox(width: 8),
-                              Text(
-                                'About Backup',
-                                style: theme.textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.blue[700],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          FutureBuilder<String>(
-                            future: _getOnePlusGuidance(),
-                            builder: (context, snapshot) {
-                              final onePlusGuidance = snapshot.data ?? '';
-                              return Text(
-                                '• Your data is encrypted with WhatsApp-style security\n'
-                                '• Backups include all income/expense entries and settings\n'
-                                '• Files are stored securely in your Google Drive app data\n'
-                                '• Automatic backups run in the background\n'
-                                '• You can restore your data on any device\n'
-                                '$onePlusGuidance',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: Colors.blue[700],
-                                ),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),

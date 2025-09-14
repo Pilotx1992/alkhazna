@@ -232,6 +232,14 @@ class NotificationHelper {
 - **Actions**: RESTORE (primary) / SKIP (secondary)
 - **No Backup**: Clear message with OK button
 
+#### 6.4 Data Sharing Interface
+- **Share Options Menu**: Export menu with multiple sharing formats
+- **Time Range Selector**: Current Month / All Data / Custom Range
+- **Format Selection**: PDF Report / Excel Sheet / JSON Data
+- **Sharing Method**: WhatsApp, Bluetooth, Quick Share, Email, File Manager
+- **Preview Option**: Data preview before sharing
+- **Security Options**: Password protect shared files (optional)
+
 ### 7. Error Handling Matrix
 
 | Error Type | User Message | Action |
@@ -324,4 +332,403 @@ class OEMHelper {
 ✅ **OEM-specific handling** for Chinese manufacturers
 ✅ **Checksum validation** for key integrity
 
-This PRD ensures a robust, user-friendly backup system that handles real-world Android fragmentation and provides a seamless experience similar to WhatsApp.
+### 14. Professional Data Sharing System
+
+#### 14.1 Overview
+Implement a comprehensive data sharing system that allows users to export and share their financial data through multiple channels with professional formatting and security options.
+
+#### 14.2 Sharing Capabilities
+
+**Time Range Options:**
+- **Current Month**: Selected month data only
+- **All Historical Data**: Complete financial history
+- **Custom Range**: User-defined date range picker
+- **Year Summary**: Annual financial reports
+
+**Export Formats:**
+```dart
+enum ExportFormat {
+  pdfReport,    // Professional formatted PDF
+  excelSheet,   // Excel workbook with formulas
+  csvData,      // Comma-separated values
+  jsonData,     // Structured JSON format
+}
+```
+
+**Sharing Methods:**
+- **WhatsApp**: Direct share with message template
+- **Bluetooth**: Nearby device sharing
+- **Quick Share**: Android's native sharing
+- **Email**: Automated email with attachments
+- **File Manager**: Save to device storage
+- **Cloud Storage**: Google Drive, Dropbox integration
+
+#### 14.3 Technical Implementation
+
+**Data Export Service:**
+```dart
+class DataExportService {
+  // Generate comprehensive financial report
+  static Future<ExportResult> generateReport({
+    required DateRange dateRange,
+    required ExportFormat format,
+    required List<DataCategory> categories,
+    ExportOptions? options,
+  }) async {
+
+    final data = await _collectData(dateRange, categories);
+
+    switch (format) {
+      case ExportFormat.pdfReport:
+        return await _generatePDFReport(data, options);
+      case ExportFormat.excelSheet:
+        return await _generateExcelReport(data, options);
+      case ExportFormat.csvData:
+        return await _generateCSVReport(data, options);
+      case ExportFormat.jsonData:
+        return await _generateJSONReport(data, options);
+    }
+  }
+
+  // Multi-platform sharing integration
+  static Future<void> shareData({
+    required ExportResult result,
+    required SharingMethod method,
+    String? customMessage,
+  }) async {
+
+    switch (method) {
+      case SharingMethod.whatsapp:
+        await _shareViaWhatsApp(result, customMessage);
+        break;
+      case SharingMethod.bluetooth:
+        await _shareViaBluetooth(result);
+        break;
+      case SharingMethod.quickShare:
+        await _shareViaQuickShare(result);
+        break;
+      case SharingMethod.email:
+        await _shareViaEmail(result, customMessage);
+        break;
+      case SharingMethod.fileManager:
+        await _saveToFileSystem(result);
+        break;
+    }
+  }
+}
+```
+
+**Professional PDF Generation:**
+```dart
+class ProfessionalPDFGenerator {
+  static Future<Uint8List> generateFinancialReport({
+    required FinancialData data,
+    required ReportOptions options,
+  }) async {
+
+    final pdf = pw.Document();
+
+    // Cover Page
+    pdf.addPage(_buildCoverPage(data.dateRange, options));
+
+    // Executive Summary
+    pdf.addPage(_buildSummaryPage(data.summary));
+
+    // Income Analysis
+    if (data.hasIncomeData) {
+      pdf.addPage(_buildIncomeAnalysis(data.income));
+    }
+
+    // Expense Analysis
+    if (data.hasExpenseData) {
+      pdf.addPage(_buildExpenseAnalysis(data.expenses));
+    }
+
+    // Charts and Visualizations
+    pdf.addPage(_buildChartsPage(data.analytics));
+
+    // Detailed Tables
+    pdf.addPage(_buildDetailedTables(data));
+
+    // Appendix
+    pdf.addPage(_buildAppendix(data.metadata));
+
+    return await pdf.save();
+  }
+}
+```
+
+**Excel Export with Formulas:**
+```dart
+class ExcelExportService {
+  static Future<Uint8List> generateWorkbook({
+    required FinancialData data,
+    required ExcelOptions options,
+  }) async {
+
+    final excel = Excel.createExcel();
+
+    // Summary Sheet
+    final summarySheet = excel['Summary'];
+    _buildSummarySheet(summarySheet, data.summary);
+
+    // Income Sheet
+    final incomeSheet = excel['Income'];
+    _buildIncomeSheet(incomeSheet, data.income);
+
+    // Expenses Sheet
+    final expenseSheet = excel['Expenses'];
+    _buildExpenseSheet(expenseSheet, data.expenses);
+
+    // Charts Sheet
+    final chartsSheet = excel['Analytics'];
+    _buildChartsSheet(chartsSheet, data.analytics);
+
+    // Add formulas and formatting
+    _addFormulasAndFormatting(excel);
+
+    return excel.save();
+  }
+
+  static void _addFormulasAndFormatting(Excel excel) {
+    // Auto-sum formulas
+    // Conditional formatting
+    // Professional styling
+    // Data validation
+  }
+}
+```
+
+#### 14.4 Sharing Integration
+
+**WhatsApp Integration:**
+```dart
+class WhatsAppSharingService {
+  static Future<void> shareFinancialReport({
+    required ExportResult report,
+    String? customMessage,
+  }) async {
+
+    final message = customMessage ?? _generateDefaultMessage(report);
+
+    // Share via WhatsApp with custom message
+    await Share.shareFiles(
+      [report.filePath],
+      text: message,
+      sharePositionOrigin: Rect.zero,
+      mimeTypes: [report.mimeType],
+      subject: 'AlKhazna Financial Report - ${report.dateRange}',
+    );
+  }
+
+  static String _generateDefaultMessage(ExportResult report) {
+    return '''
+💰 AlKhazna Financial Report
+📅 Period: ${report.dateRange}
+📊 Total Income: ${report.summary.totalIncome}
+💸 Total Expenses: ${report.summary.totalExpenses}
+💎 Net Balance: ${report.summary.netBalance}
+
+Generated with AlKhazna App 📱
+    ''';
+  }
+}
+```
+
+**Bluetooth & Quick Share:**
+```dart
+class NearbyShareService {
+  static Future<void> shareViaBluetooth(ExportResult report) async {
+    // Use Android's Bluetooth sharing
+    await Share.shareFiles([report.filePath]);
+  }
+
+  static Future<void> shareViaQuickShare(ExportResult report) async {
+    // Use Android's Quick Share (Nearby Share)
+    await Share.shareFiles(
+      [report.filePath],
+      mimeTypes: [report.mimeType],
+    );
+  }
+}
+```
+
+**Email Integration:**
+```dart
+class EmailSharingService {
+  static Future<void> shareViaEmail({
+    required ExportResult report,
+    String? customMessage,
+    List<String>? recipients,
+  }) async {
+
+    final Email email = Email(
+      body: customMessage ?? _generateEmailBody(report),
+      subject: 'Financial Report - ${report.dateRange}',
+      recipients: recipients ?? [],
+      attachmentPaths: [report.filePath],
+      isHTML: true,
+    );
+
+    await FlutterEmailSender.send(email);
+  }
+
+  static String _generateEmailBody(ExportResult report) {
+    return '''
+    <h2>AlKhazna Financial Report</h2>
+    <p><strong>Period:</strong> ${report.dateRange}</p>
+    <p><strong>Generated:</strong> ${DateTime.now().toString()}</p>
+
+    <h3>Summary:</h3>
+    <ul>
+      <li>Total Income: ${report.summary.totalIncome}</li>
+      <li>Total Expenses: ${report.summary.totalExpenses}</li>
+      <li>Net Balance: ${report.summary.netBalance}</li>
+    </ul>
+
+    <p>Please find the detailed report attached.</p>
+    <p><em>Generated with AlKhazna Financial Tracker</em></p>
+    ''';
+  }
+}
+```
+
+#### 14.5 Security & Privacy
+
+**File Security:**
+```dart
+class SecureExportService {
+  static Future<ExportResult> generateSecureReport({
+    required FinancialData data,
+    required ExportOptions options,
+    String? password,
+  }) async {
+
+    final report = await _generateReport(data, options);
+
+    if (password != null) {
+      // Encrypt the file with password
+      final encryptedData = await _encryptFile(report.data, password);
+      return ExportResult(
+        data: encryptedData,
+        filename: '${report.filename}.encrypted',
+        mimeType: 'application/octet-stream',
+        isEncrypted: true,
+      );
+    }
+
+    return report;
+  }
+
+  static Future<Uint8List> _encryptFile(Uint8List data, String password) async {
+    // AES-256 encryption with password-derived key
+    final key = await _deriveKey(password);
+    final cipher = AESGCMCipher();
+    return await cipher.encrypt(data, key);
+  }
+}
+```
+
+#### 14.6 User Experience Features
+
+**Smart Sharing Suggestions:**
+```dart
+class SmartSharingService {
+  static List<SharingMethod> getSuggestedMethods({
+    required ExportFormat format,
+    required int fileSize,
+  }) {
+
+    final suggestions = <SharingMethod>[];
+
+    // Size-based recommendations
+    if (fileSize < 25 * 1024 * 1024) { // 25MB
+      suggestions.addAll([
+        SharingMethod.whatsapp,
+        SharingMethod.email,
+      ]);
+    }
+
+    // Format-based recommendations
+    if (format == ExportFormat.pdfReport) {
+      suggestions.add(SharingMethod.whatsapp);
+    }
+
+    // Always available
+    suggestions.addAll([
+      SharingMethod.quickShare,
+      SharingMethod.bluetooth,
+      SharingMethod.fileManager,
+    ]);
+
+    return suggestions;
+  }
+}
+```
+
+**Sharing Analytics:**
+```dart
+class SharingAnalytics {
+  static void trackShare({
+    required SharingMethod method,
+    required ExportFormat format,
+    required DateRange dateRange,
+  }) {
+    // Track sharing patterns for UX improvements
+    FirebaseAnalytics.instance.logEvent(
+      name: 'data_shared',
+      parameters: {
+        'method': method.name,
+        'format': format.name,
+        'date_range': dateRange.toString(),
+        'timestamp': DateTime.now().toIso8601String(),
+      },
+    );
+  }
+}
+```
+
+#### 14.7 Implementation Requirements
+
+**Dependencies:**
+```yaml
+dependencies:
+  # File sharing
+  share_plus: ^7.2.1
+  flutter_email_sender: ^6.0.2
+
+  # File generation
+  excel: ^2.1.0
+  csv: ^5.0.2
+
+  # Security
+  encrypt: ^5.0.1
+  crypto: ^3.0.3
+
+  # UI Components
+  file_picker: ^6.1.1
+  path_provider: ^2.1.1
+```
+
+**Performance Requirements:**
+- **Generation Speed**: <5 seconds for monthly reports, <15 seconds for annual reports
+- **File Size**: PDF <5MB, Excel <10MB, CSV <2MB
+- **Memory Usage**: <100MB during export process
+- **Sharing Success Rate**: >99% for standard sharing methods
+
+#### 14.8 Quality Assurance
+
+**Testing Matrix:**
+- **Format Testing**: All export formats with various data sizes
+- **Sharing Testing**: All sharing methods across different Android versions
+- **Security Testing**: Password protection and encryption validation
+- **Performance Testing**: Large datasets (5+ years of data)
+- **Compatibility Testing**: Different devices and OEM customizations
+
+**Error Handling:**
+- **File Generation Failures**: Clear error messages with retry options
+- **Sharing Failures**: Alternative sharing method suggestions
+- **Storage Issues**: Insufficient space warnings with cleanup options
+- **Network Issues**: Offline queuing for cloud-based sharing
+
+This comprehensive data sharing system ensures professional-grade export capabilities while maintaining user-friendly operation and robust security measures.

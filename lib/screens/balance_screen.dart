@@ -283,7 +283,7 @@ class _BalanceScreenState extends State<BalanceScreen>
             balance.abs(),
             isPositive ? Icons.trending_up : Icons.trending_down,
             isPositive ? Colors.green : Colors.red,
-            subtitle: isPositive ? 'Surplus' : 'Deficit',
+            subtitle: isPositive ? '+' : '-',
           ),
         ],
       ),
