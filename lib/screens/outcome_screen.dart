@@ -33,7 +33,8 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedDate = DateTime(widget.year, _getMonthNumber(widget.month), 1);
+    // Default to today's date instead of first day of the month
+    _selectedDate = DateTime.now();
     _loadEntries();
   }
 
@@ -79,7 +80,10 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Save failed: ${e.toString()}')),
+          SnackBar(
+            content: Text('Save failed: ${e.toString()}'),
+            duration: const Duration(seconds: 2),
+          ),
         );
       }
     }
@@ -90,7 +94,10 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
     // Validate input
     if (_descriptionController.text.trim().isEmpty || _amountInputController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill description and amount')),
+        const SnackBar(
+          content: Text('Please fill description and amount'),
+          duration: Duration(seconds: 2),
+        ),
       );
       return;
     }
@@ -98,7 +105,10 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
     final amount = double.tryParse(_amountInputController.text.trim()) ?? 0;
     if (amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid amount')),
+        const SnackBar(
+          content: Text('Please enter a valid amount'),
+          duration: Duration(seconds: 2),
+        ),
       );
       return;
     }
@@ -162,6 +172,7 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Entry deleted'),
+          duration: const Duration(seconds: 2),
           action: SnackBarAction(
             label: 'Undo',
             onPressed: () {
@@ -216,9 +227,11 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
                       onTap: () async {
                         final DateTime? picked = await showDatePicker(
                           context: context,
-                          initialDate: _selectedDate,
-                          firstDate: DateTime(DateTime.now().year, 1, 1),
-                          lastDate: DateTime(DateTime.now().year, 12, 31),
+                          // Always start the picker at today's date
+                          initialDate: DateTime.now(),
+                          // Effectively no bounds: allow the full supported DateTime range
+                          firstDate: DateTime(1),
+                          lastDate: DateTime(9999, 12, 31),
                         );
                         if (picked != null) {
                           setState(() {
