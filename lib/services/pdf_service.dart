@@ -2,7 +2,6 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:bidi/bidi.dart' as bidi;
 import '../models/income_entry.dart';
 import '../models/outcome_entry.dart';
 

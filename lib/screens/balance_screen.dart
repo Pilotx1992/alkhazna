@@ -84,6 +84,7 @@ class _BalanceScreenState extends State<BalanceScreen>
           const SnackBar(
             content: Text('Error loading data'),
             backgroundColor: Colors.red,
+            duration: Duration(seconds: 2),
           ),
         );
       }
@@ -112,15 +113,20 @@ class _BalanceScreenState extends State<BalanceScreen>
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('PDF exported successfully!')),
+          const SnackBar(
+            content: Text('PDF exported successfully!'),
+            duration: Duration(seconds: 2),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Failed to export PDF'),
-              backgroundColor: Colors.red),
+            content: Text('Failed to export PDF'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 2),
+          ),
         );
       }
     }
@@ -148,15 +154,20 @@ class _BalanceScreenState extends State<BalanceScreen>
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('PDF shared successfully!')),
+          const SnackBar(
+            content: Text('PDF shared successfully!'),
+            duration: Duration(seconds: 2),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Failed to share PDF'),
-              backgroundColor: Colors.red),
+            content: Text('Failed to share PDF'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 2),
+          ),
         );
       }
     }

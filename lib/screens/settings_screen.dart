@@ -158,6 +158,7 @@ class SettingsScreen extends StatelessWidget {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Change password feature coming soon!'),
+                          duration: Duration(seconds: 2),
                         ),
                       );
                     },
@@ -221,6 +222,7 @@ class SettingsScreen extends StatelessWidget {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Local storage management coming soon!'),
+                          duration: Duration(seconds: 2),
                         ),
                       );
                     },
@@ -257,6 +259,7 @@ class SettingsScreen extends StatelessWidget {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Theme settings coming soon!'),
+                          duration: Duration(seconds: 2),
                         ),
                       );
                     },
@@ -275,6 +278,7 @@ class SettingsScreen extends StatelessWidget {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Language settings coming soon!'),
+                          duration: Duration(seconds: 2),
                         ),
                       );
                     },
@@ -293,6 +297,7 @@ class SettingsScreen extends StatelessWidget {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Notification settings coming soon!'),
+                          duration: Duration(seconds: 2),
                         ),
                       );
                     },

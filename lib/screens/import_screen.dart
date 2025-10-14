@@ -44,6 +44,7 @@ class _ImportScreenState extends State<ImportScreen> {
           SnackBar(
             content: Text('Failed to read file: $e'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 2),
           ),
         );
       }
@@ -76,6 +77,7 @@ class _ImportScreenState extends State<ImportScreen> {
           const SnackBar(
             content: Text('Data imported successfully!'),
             backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
           ),
         );
 
@@ -88,6 +90,7 @@ class _ImportScreenState extends State<ImportScreen> {
           SnackBar(
             content: Text('Failed to import data: $e'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 2),
           ),
         );
       }

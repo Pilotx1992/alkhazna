@@ -35,7 +35,8 @@
       "Bash(git clean:*)",
       "Bash(ren:*)",
       "Bash(fc:*)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Bash(clip)"
     ],
     "deny": [],
     "ask": []

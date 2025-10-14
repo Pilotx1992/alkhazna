@@ -1,6 +1,7 @@
 import 'package:provider/provider.dart';
 import 'login_screen.dart';
 import '../backup/ui/backup_screen.dart';
+import '../backup/services/backup_service.dart';
 
 import "package:flutter/material.dart";
 import "package:shared_preferences/shared_preferences.dart";
@@ -8,6 +9,7 @@ import "package:shared_preferences/shared_preferences.dart";
 import "month_page.dart";
 import "../services/storage_service.dart";
 import "../services/auth_service.dart";
+import "../services/connectivity_service.dart";
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -37,8 +39,10 @@ class _HomeScreenState extends State<HomeScreen> {
   late int _selectedYear;
 
   final StorageService _storageService = StorageService();
+  final ConnectivityService _connectivityService = ConnectivityService();
   
   bool _isTotalsLoading = true;
+  bool _isOnline = true;
   
   // Overall totals across all months
   double _overallTotalIncome = 0;
@@ -52,6 +56,12 @@ class _HomeScreenState extends State<HomeScreen> {
     _selectedMonth = _months[DateTime.now().month - 1];
     _selectedYear = DateTime.now().year;
     _loadLastSelection();
+    _checkConnectivity();
+    
+    // Listen to connectivity changes
+    _connectivityService.listenToConnectivityChanges((result) {
+      _checkConnectivity();
+    });
     
     // Check for restore on app start
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -90,6 +100,23 @@ class _HomeScreenState extends State<HomeScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('lastSelectedMonth', _selectedMonth);
     await prefs.setInt('lastSelectedYear', _selectedYear);
+  }
+
+  Future<void> _checkConnectivity() async {
+    try {
+      final isOnline = await _connectivityService.isOnline();
+      if (mounted) {
+        setState(() {
+          _isOnline = isOnline;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isOnline = false;
+        });
+      }
+    }
   }
 
   Future<void> _loadTotals() async {
@@ -446,17 +473,75 @@ class _HomeScreenState extends State<HomeScreen> {
                         width: double.infinity,
                         child: FilledButton.icon(
                           onPressed: () async {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const BackupScreen(),
+                            // Show loading indicator
+                            showDialog(
+                              context: context,
+                              barrierDismissible: false,
+                              builder: (context) => const Center(
+                                child: Card(
+                                  child: Padding(
+                                    padding: EdgeInsets.all(20),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        CircularProgressIndicator(),
+                                        SizedBox(height: 16),
+                                        Text('Signing in to Google...'),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                               ),
                             );
-                            // Refresh home screen data after returning from backup screen
-                            _loadTotals();
+
+                            try {
+                              // Auto sign in silently
+                              final backupService = BackupService();
+                              final isSignedIn = await _performAutoSignIn(backupService);
+                              
+                              // Close loading dialog
+                              if (mounted) Navigator.of(context).pop();
+                              
+                              if (isSignedIn) {
+                                // Navigate to backup screen
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const BackupScreen(),
+                                  ),
+                                );
+                                // Refresh home screen data after returning from backup screen
+                                _loadTotals();
+                              } else {
+                                // Show error message
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Failed to sign in to Google. Please try again.'),
+                                      backgroundColor: Colors.red,
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
+                              }
+                            } catch (e) {
+                              // Close loading dialog
+                              if (mounted) Navigator.of(context).pop();
+                              
+                              // Show error message
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Error: ${e.toString()}'),
+                                    backgroundColor: Colors.red,
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                              }
+                            }
                           },
                           icon: const Icon(Icons.cloud_outlined, size: 20),
-                          label: const Text('Backup & share Data'),
+                          label: const Text('Backup & Data Center'),
                           style: FilledButton.styleFrom(
                             backgroundColor: colorScheme.primary,
                             foregroundColor: colorScheme.onPrimary,
@@ -491,6 +576,14 @@ class _HomeScreenState extends State<HomeScreen> {
               color: colorScheme.onSurface,
             ),
           ),
+          centerTitle: true,
+          leading: !_isOnline
+              ? const Icon(
+                  Icons.wifi_off,
+                  size: 20,
+                  color: Colors.orange,
+                )
+              : null,
           backgroundColor: colorScheme.surface,
           elevation: 0,
           actions: [
@@ -522,5 +615,15 @@ class _HomeScreenState extends State<HomeScreen> {
   /// Temporarily disabled - will be re-implemented in Phase 2
   Future<void> _checkAndShowRestore(BuildContext context) async {
     // TODO: Re-implement backup/restore functionality
+  }
+
+  /// Perform automatic silent sign in to Google
+  Future<bool> _performAutoSignIn(BackupService backupService) async {
+    try {
+      return await backupService.performAutoSignIn();
+    } catch (e) {
+      print('Auto sign in error: $e');
+      return false;
+    }
   }
 }

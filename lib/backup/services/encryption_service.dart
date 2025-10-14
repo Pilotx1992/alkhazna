@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter/foundation.dart';
+import 'package:crypto/crypto.dart';
 
 /// Encryption service for WhatsApp-style backup system
 /// Uses AES-256-GCM for authenticated encryption
@@ -39,7 +40,7 @@ class EncryptionService {
         data,
         secretKey: secretKey,
         nonce: nonce,
-        aad: aad != null ? aad! : [],
+        aad: aad ?? [],
       );
 
       // Convert to base64 strings for storage
@@ -111,7 +112,7 @@ class EncryptionService {
       final decryptedData = await _algorithm.decrypt(
         secretBox,
         secretKey: secretKey,
-        aad: aad != null ? aad! : [],
+        aad: aad ?? [],
       );
 
       final result = Uint8List.fromList(decryptedData);
@@ -156,6 +157,10 @@ class EncryptionService {
         return null;
       }
 
+      // Compute checksum of encrypted cipher text for integrity
+      final _cipherBytes = base64Decode(encryptedData['data']!);
+      final _digest = sha256.convert(_cipherBytes).toString();
+
       // Add metadata
       final result = {
         'encrypted': true,
@@ -163,6 +168,7 @@ class EncryptionService {
         'backup_id': backupId,
         'original_size': databaseBytes.length,
         'timestamp': DateTime.now().toIso8601String(),
+        'checksum': _digest,
         ...encryptedData,
       };
 
@@ -202,6 +208,27 @@ class EncryptionService {
         if (kDebugMode) {
           print('❌ Missing backup ID');
         }
+        return null;
+      }
+
+      // Verify checksum of encrypted data before decryption (if present)
+      try {
+        final _cipherPreview = encryptedBackup['data'];
+        if (_cipherPreview is String && encryptedBackup.containsKey('checksum')) {
+          final _cipher = base64Decode(_cipherPreview);
+          final _expected = encryptedBackup['checksum'] as String?;
+          if (_expected != null) {
+            final _actual = sha256.convert(_cipher).toString();
+            if (_actual != _expected) {
+              if (kDebugMode) {
+                print('Integrity check failed: checksum mismatch');
+              }
+              return null;
+            }
+          }
+        }
+      } catch (_) {
+        // If checksum block throws, fail closed
         return null;
       }
 

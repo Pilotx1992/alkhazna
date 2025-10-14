@@ -127,7 +127,7 @@ class BackupConstants {
   static const double backupButtonHeight = 50.0;
   static const double progressIndicatorSize = 24.0;
   static const Duration animationDuration = Duration(milliseconds: 300);
-  static const Duration notificationDisplayDuration = Duration(seconds: 3);
+  static const Duration notificationDisplayDuration = Duration(seconds: 2);
 
   // Validation
   static const int minPasswordLength = 8;

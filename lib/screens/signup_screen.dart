@@ -198,6 +198,7 @@ class _SignupScreenState extends State<SignupScreen>
       SnackBar(
         content: Text(message),
         backgroundColor: const Color(0xFFF44336),
+        duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),

@@ -48,7 +48,7 @@ class KeyManager extends ChangeNotifier {
         return null;
       }
 
-      final userEmail = account.email!;
+      final userEmail = account.email;
       final googleId = account.id;
       
       if (kDebugMode) {
@@ -81,7 +81,21 @@ class KeyManager extends ChangeNotifier {
         }
       }
 
-      // Step 4: Generate new master key
+        // If a key exists in cloud but retrieval failed, avoid overwriting it
+        try {
+          final existsInCloud = await _driveService.fileExists(_keyFileName);
+          if (existsInCloud) {
+            if (kDebugMode) {
+              print('Key exists in cloud but retrieval failed; aborting to avoid overwrite');
+            }
+            return null;
+          }
+        } catch (_) {
+          // On errors checking presence, fail closed
+          return null;
+        }
+
+        // Step 4: Generate new master key
       if (kDebugMode) {
         print('🔧 Generating new master key...');
       }

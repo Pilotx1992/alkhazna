@@ -42,7 +42,10 @@ class _ExportButtonState extends State<ExportButton> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Report exported successfully')),
+          const SnackBar(
+            content: Text('Report exported successfully'),
+            duration: Duration(seconds: 2),
+          ),
         );
       }
     } catch (e) {
@@ -51,6 +54,7 @@ class _ExportButtonState extends State<ExportButton> {
           const SnackBar(
             content: Text('An error occurred while exporting the report'),
             backgroundColor: Colors.red,
+            duration: Duration(seconds: 2),
           ),
         );
       }

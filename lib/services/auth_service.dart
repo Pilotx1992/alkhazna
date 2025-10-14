@@ -6,6 +6,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:validators/validators.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/auth_state.dart';
 import '../models/user.dart';
@@ -14,7 +15,8 @@ import '../models/user.dart';
 class AuthService extends ChangeNotifier {
   static const String _usersBoxName = 'users';
   static const String _currentUserKey = 'current_user_id';
-  
+  static const String _currentUserKeyBackup = 'current_user_id_backup'; // Backup in SharedPreferences
+
   // Secure storage for sensitive data
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
   
@@ -104,14 +106,21 @@ class AuthService extends ChangeNotifier {
   Future<void> _restoreSession(bool biometricAvailable) async {
     try {
       debugPrint('🔍 Reading stored user ID...');
-      final String? currentUserId = await _secureStorage.read(key: _currentUserKey).timeout(
+      String? currentUserId = await _secureStorage.read(key: _currentUserKey).timeout(
         const Duration(seconds: 3),
         onTimeout: () {
           debugPrint('❌ Secure storage timeout');
           return null;
         },
       );
-      
+
+      // If secure storage fails, try SharedPreferences as backup
+      if (currentUserId == null) {
+        debugPrint('🔄 Trying SharedPreferences backup...');
+        final prefs = await SharedPreferences.getInstance();
+        currentUserId = prefs.getString(_currentUserKeyBackup);
+      }
+
       debugPrint('📝 Current user ID: $currentUserId');
       
       if (currentUserId != null && _usersBox != null) {
@@ -187,6 +196,10 @@ class AuthService extends ChangeNotifier {
       await _usersBox!.put(user.id, user);
       await _secureStorage.write(key: _currentUserKey, value: user.id);
 
+      // Also save to SharedPreferences as backup
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_currentUserKeyBackup, user.id);
+
       // Update state
       _updateState(_authState.authenticated(user, AuthMethod.password));
       return true;
@@ -228,6 +241,10 @@ class AuthService extends ChangeNotifier {
       // Update last login
       user.updateLastLogin();
       await _secureStorage.write(key: _currentUserKey, value: user.id);
+
+      // Also save to SharedPreferences as backup
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_currentUserKeyBackup, user.id);
 
       // Update state
       _updateState(_authState.authenticated(user, AuthMethod.password));
@@ -314,6 +331,11 @@ class AuthService extends ChangeNotifier {
       }
 
       await _secureStorage.write(key: _currentUserKey, value: user.id);
+
+      // Also save to SharedPreferences as backup
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_currentUserKeyBackup, user.id);
+
       _updateState(_authState.authenticated(user, AuthMethod.google));
       return true;
 
@@ -396,6 +418,11 @@ class AuthService extends ChangeNotifier {
 
       // Clear current user from secure storage
       await _secureStorage.delete(key: _currentUserKey);
+
+      // Also clear from SharedPreferences backup
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_currentUserKeyBackup);
+
       debugPrint('🗑️ Cleared current user from secure storage');
 
       // Sign out from Google

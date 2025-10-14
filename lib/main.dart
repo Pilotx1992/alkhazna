@@ -9,8 +9,10 @@ import 'models/outcome_entry.dart';
 import 'models/user.dart';
 import 'models/entry_list_adapters.dart';
 import 'services/auth_service.dart';
+import 'services/connectivity_service.dart';
 import 'backup/utils/backup_scheduler.dart';
 import 'backup/utils/notification_helper.dart';
+import 'backup/services/backup_service.dart';
 
 class AppTheme {
   static ThemeData get lightTheme {
@@ -173,8 +175,11 @@ class AlKhaznaApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) => AuthService()..initialize(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (context) => AuthService()..initialize()),
+        ChangeNotifierProvider(create: (context) => BackupService()),
+      ],
       child: MaterialApp(
         title: 'Al Khazna',
         theme: AppTheme.lightTheme,
@@ -195,8 +200,43 @@ class AlKhaznaApp extends StatelessWidget {
 }
 
 /// Authentication wrapper to handle routing based on auth state
-class AuthWrapper extends StatelessWidget {
+/// Supports Offline-First approach - goes directly to HomeScreen when offline
+class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
+
+  @override
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> {
+  final ConnectivityService _connectivityService = ConnectivityService();
+  bool _isCheckingConnectivity = true;
+  bool _isOnline = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkConnectivity();
+  }
+
+  Future<void> _checkConnectivity() async {
+    try {
+      final isOnline = await _connectivityService.isOnline();
+      if (mounted) {
+        setState(() {
+          _isOnline = isOnline;
+          _isCheckingConnectivity = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isOnline = false;
+          _isCheckingConnectivity = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -204,8 +244,8 @@ class AuthWrapper extends StatelessWidget {
       builder: (context, authService, child) {
         final authState = authService.authState;
         
-        // Show loading while initializing
-        if (authState.isLoading) {
+        // Show loading while checking connectivity or initializing auth
+        if (_isCheckingConnectivity || authState.isLoading) {
           return const Scaffold(
             backgroundColor: Color(0xFFF8F9FA),
             body: Center(
@@ -227,6 +267,14 @@ class AuthWrapper extends StatelessWidget {
                       color: Color(0xFF2E7D32),
                     ),
                   ),
+                  SizedBox(height: 16),
+                  Text(
+                    'Loading...',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Color(0xFF2E7D32),
+                    ),
+                  ),
                   SizedBox(height: 32),
                   CircularProgressIndicator(
                     color: Color(0xFF2E7D32),
@@ -237,7 +285,12 @@ class AuthWrapper extends StatelessWidget {
           );
         }
         
-        // Navigate based on authentication state
+        // Offline-First: If no internet, go directly to HomeScreen
+        if (!_isOnline) {
+          return const HomeScreen();
+        }
+        
+        // Online: Navigate based on authentication state
         if (authState.isAuthenticated) {
           return const HomeScreen();
         } else {

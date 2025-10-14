@@ -52,7 +52,10 @@ class _IncomeScreenState extends State<IncomeScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Save failed: ${e.toString()}')),
+        SnackBar(
+          content: Text('Save failed: ${e.toString()}'),
+          duration: const Duration(seconds: 2),
+        ),
       );
     }
   }
@@ -78,6 +81,7 @@ class _IncomeScreenState extends State<IncomeScreen> {
           SnackBar(
             content: Text('Failed to generate PDF: $e'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 2),
           ),
         );
       }
@@ -124,6 +128,7 @@ class _IncomeScreenState extends State<IncomeScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Entry deleted'),
+          duration: const Duration(seconds: 2),
           action: SnackBarAction(
             label: 'Undo',
             onPressed: () {
@@ -152,7 +157,10 @@ class _IncomeScreenState extends State<IncomeScreen> {
     _saveEntries();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('New entry inserted')),
+      const SnackBar(
+        content: Text('New entry inserted'),
+        duration: Duration(seconds: 2),
+      ),
     );
   }
 
@@ -226,19 +234,27 @@ class _IncomeScreenState extends State<IncomeScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text(
-                  '${prevEntries.length} names copied from $prevMonth $prevYear!')),
+            content: Text(
+                '${prevEntries.length} names copied from $prevMonth $prevYear!'),
+            duration: const Duration(seconds: 2),
+          ),
         );
       } else {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('No data found for $prevMonth $prevYear')),
+          SnackBar(
+            content: Text('No data found for $prevMonth $prevYear'),
+            duration: const Duration(seconds: 2),
+          ),
         );
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error copying data: ${e.toString()}')),
+        SnackBar(
+          content: Text('Error copying data: ${e.toString()}'),
+          duration: const Duration(seconds: 2),
+        ),
       );
     }
   }
@@ -260,7 +276,10 @@ class _IncomeScreenState extends State<IncomeScreen> {
     } else {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No rows to delete')),
+        const SnackBar(
+          content: Text('No rows to delete'),
+          duration: Duration(seconds: 2),
+        ),
       );
     }
   }

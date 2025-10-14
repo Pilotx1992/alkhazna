@@ -96,7 +96,6 @@ class _BiometricSettingsScreenState extends State<BiometricSettingsScreen> {
         return '👁️';
       case BiometricType.strong:
       case BiometricType.weak:
-      default:
         return '🔐';
     }
   }
@@ -113,8 +112,6 @@ class _BiometricSettingsScreenState extends State<BiometricSettingsScreen> {
         return 'Strong Biometrics';
       case BiometricType.weak:
         return 'Weak Biometrics';
-      default:
-        return 'Biometric Authentication';
     }
   }
 

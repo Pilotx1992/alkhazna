@@ -2,9 +2,12 @@ import 'package:flutter/foundation.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../models/backup_status.dart';
 import '../services/backup_service.dart';
 import 'notification_helper.dart';
+import '../../models/income_entry.dart';
+import '../../models/outcome_entry.dart';
 
 /// Auto-backup scheduler with OEM workarounds for Chinese devices
 class BackupScheduler {
@@ -178,10 +181,22 @@ class BackupScheduler {
   static Future<void> updateLastBackupTime() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt(_lastBackupKey, DateTime.now().millisecondsSinceEpoch);
+      await prefs.setInt(_lastBackupKey, DateTime.now().toUtc().millisecondsSinceEpoch);
     } catch (e) {
       if (kDebugMode) {
         print('💥 Error updating last backup time: $e');
+      }
+    }
+  }
+
+  /// Explicitly set last backup time (stored as UTC milliseconds)
+  static Future<void> setLastBackupTime(DateTime time) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_lastBackupKey, time.toUtc().millisecondsSinceEpoch);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error setting last backup time: $e');
       }
     }
   }
@@ -193,7 +208,13 @@ class BackupScheduler {
       final timestamp = prefs.getInt(_lastBackupKey);
       
       if (timestamp != null) {
-        return DateTime.fromMillisecondsSinceEpoch(timestamp);
+        int ms = timestamp;
+        // Handle legacy seconds-based values by converting to milliseconds
+        if (ms < 1000000000000) {
+          ms = ms * 1000;
+        }
+        // Interpret stored value as UTC and convert to local time for display
+        return DateTime.fromMillisecondsSinceEpoch(ms, isUtc: true).toLocal();
       }
     } catch (e) {
       if (kDebugMode) {
@@ -318,6 +339,16 @@ void callbackDispatcher() {
         print('   Input data: $inputData');
       }
 
+      // Initialize Hive for background task
+      try {
+        await _initializeBackgroundServices();
+      } catch (e) {
+        if (kDebugMode) {
+          print('💥 Failed to initialize background services: $e');
+        }
+        return false;
+      }
+
       switch (task) {
         case BackupScheduler._autoBackupTaskId:
           return await _performBackgroundBackup(inputData);
@@ -331,6 +362,31 @@ void callbackDispatcher() {
       return Future.value(false);
     }
   });
+}
+
+/// Initialize services for background task
+Future<void> _initializeBackgroundServices() async {
+  try {
+    // Initialize Hive
+    await Hive.initFlutter();
+
+    // Register adapters if not already registered
+    if (!Hive.isAdapterRegistered(0)) {
+      Hive.registerAdapter(IncomeEntryAdapter());
+    }
+    if (!Hive.isAdapterRegistered(1)) {
+      Hive.registerAdapter(OutcomeEntryAdapter());
+    }
+
+    if (kDebugMode) {
+      print('✅ Background services initialized');
+    }
+  } catch (e) {
+    if (kDebugMode) {
+      print('⚠️ Background services init warning: $e');
+    }
+    // Continue anyway - services might already be initialized
+  }
 }
 
 /// Perform background backup

@@ -83,7 +83,12 @@ class _BackupProgressSheetState extends State<BackupProgressSheet> {
         } else if (_currentProgress.backupStatus == BackupStatus.failed) {
           _hasCalledCallback = true;
           if (mounted) {
-            _showErrorDialog('Backup failed. Please try again.');
+            // Check if it's a Wi-Fi connection error
+            if (_currentProgress.currentAction.contains('Wi-Fi connection required')) {
+              _showWifiRequiredDialog();
+            } else {
+              _showErrorDialog('Backup failed. Please try again.');
+            }
           }
         }
       }
@@ -395,16 +400,16 @@ class _BackupProgressSheetState extends State<BackupProgressSheet> {
     );
   }
 
-  void _showSuccessAndClose(String message) {
+
+  void _showErrorDialog(String message) {
     showDialog(
       context: context,
-      barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: Row(
           children: [
-            Icon(Icons.check_circle, color: Colors.green[600]),
+            Icon(Icons.error, color: Colors.red[600]),
             const SizedBox(width: 8),
-            const Text('Success'),
+            const Text('Error'),
           ],
         ),
         content: Text(message),
@@ -421,18 +426,22 @@ class _BackupProgressSheetState extends State<BackupProgressSheet> {
     );
   }
 
-  void _showErrorDialog(String message) {
+  void _showWifiRequiredDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Row(
           children: [
-            Icon(Icons.error, color: Colors.red[600]),
+            Icon(Icons.wifi_off, color: Colors.orange[700]),
             const SizedBox(width: 8),
-            const Text('Error'),
+            const Text('Wi-Fi Connection Required'),
           ],
         ),
-        content: Text(message),
+        content: const Text(
+          'Your network preference is set to "Wi-Fi only".\n\n'
+          'Please connect to Wi-Fi to create a backup, or change your network preference to "Wi-Fi + Mobile" in backup settings.',
+          style: TextStyle(fontSize: 15),
+        ),
         actions: [
           TextButton(
             onPressed: () {

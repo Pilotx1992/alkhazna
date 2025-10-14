@@ -22,43 +22,48 @@ class GoogleDriveService {
 
   drive.DriveApi? _driveApi;
 
-  /// Initialize Google Drive API
-  Future<bool> initialize() async {
+  /// Initialize Google Drive API with external auth headers
+  Future<bool> initialize({Map<String, String>? authHeaders}) async {
     try {
       if (kDebugMode) {
         print('🔧 Initializing Google Drive service...');
       }
 
-      // Get authenticated account
-      var account = _googleSignIn.currentUser;
-      if (account == null) {
-        account = await _googleSignIn.signInSilently();
-      }
-      if (account == null) {
-        account = await _googleSignIn.signIn();
-      }
-
-      if (account == null) {
-        if (kDebugMode) {
-          print('❌ No Google account available');
+      // Use provided auth headers or get from GoogleSignIn
+      Map<String, String>? headers = authHeaders;
+      
+      if (headers == null) {
+        // Get authenticated account
+        var account = _googleSignIn.currentUser;
+        if (account == null) {
+          account = await _googleSignIn.signInSilently();
         }
-        return false;
-      }
+        if (account == null) {
+          account = await _googleSignIn.signIn();
+        }
 
-      // Get fresh authentication headers
-      final authHeaders = await account.authHeaders;
+        if (account == null) {
+          if (kDebugMode) {
+            print('❌ No Google account available');
+          }
+          return false;
+        }
+
+        // Get fresh authentication headers
+        headers = await account.authHeaders;
+      }
       
       if (kDebugMode) {
-        print('🔑 Auth headers received: ${authHeaders.keys.join(', ')}');
-        for (final key in authHeaders.keys) {
-          final value = authHeaders[key] ?? '';
+        print('🔑 Auth headers received: ${headers.keys.join(', ')}');
+        for (final key in headers.keys) {
+          final value = headers[key] ?? '';
           print('🔑 $key: ${value.length > 30 ? '${value.substring(0, 30)}...' : value}');
         }
       }
 
       // Use the GoogleSignInAuthentication approach instead
-      final authentication = await account.authentication;
-      final accessToken = authentication.accessToken;
+      final authentication = await _googleSignIn.currentUser?.authentication;
+      final accessToken = authentication?.accessToken;
       
       if (accessToken == null) {
         if (kDebugMode) {
@@ -88,7 +93,7 @@ class GoogleDriveService {
       _driveApi = drive.DriveApi(authenticatedClient);
       
       if (kDebugMode) {
-        print('✅ Google Drive service initialized for: ${account.email}');
+        print('✅ Google Drive service initialized for: ${_googleSignIn.currentUser?.email}');
       }
       
       return true;
@@ -315,7 +320,7 @@ class GoogleDriveService {
     try {
       await _googleSignIn.signOut();
       _driveApi = null;
-      
+
       if (kDebugMode) {
         print('👋 Signed out from Google Drive');
       }
@@ -326,11 +331,48 @@ class GoogleDriveService {
     }
   }
 
+  /// Sign in to Google (interactive)
+  Future<bool> signIn() async {
+    try {
+      final account = await _googleSignIn.signIn();
+      if (account == null) {
+        if (kDebugMode) {
+          print('❌ User cancelled sign-in');
+        }
+        return false;
+      }
+
+      // Initialize the Drive API with the new account
+      return await initialize();
+    } catch (e) {
+      if (kDebugMode) {
+        print('💥 Error signing in: $e');
+      }
+      return false;
+    }
+  }
+
   /// Get current user info
   GoogleSignInAccount? get currentUser => _googleSignIn.currentUser;
 
   /// Check if user is signed in
   bool get isSignedIn => _googleSignIn.currentUser != null;
+  /// Delete a file by ID from AppDataFolder
+  Future<void> deleteFileById(String fileId) async {
+    try {
+      if (_driveApi == null && !await initialize()) {
+        return;
+      }
+      await _driveApi!.files.delete(fileId);
+      if (kDebugMode) {
+        print('Deleted Drive file: ' + fileId);
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error deleting Drive file: ' + e.toString());
+      }
+    }
+  }
 }
 
 /// Authenticated HTTP client for Google APIs
@@ -352,4 +394,6 @@ class AuthenticatedClient extends http.BaseClient {
     
     return _inner.send(request);
   }
+
+  // Note: No Drive helpers here – network client only
 }

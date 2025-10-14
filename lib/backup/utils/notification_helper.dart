@@ -179,7 +179,7 @@ class NotificationHelper {
     try {
       final icon = success ? '✅' : '❌';
       final title = success ? 'Backup completed' : 'Backup failed';
-      
+
       await _notifications.show(
         3, // Completion notification ID
         '$icon $title',
@@ -192,10 +192,11 @@ class NotificationHelper {
             importance: Importance.defaultImportance,
             priority: Priority.defaultPriority,
             autoCancel: true,
-            category: success 
-                ? AndroidNotificationCategory.status 
+            category: success
+                ? AndroidNotificationCategory.status
                 : AndroidNotificationCategory.error,
             colorized: true,
+            timeoutAfter: 2000, // 2 seconds
           ),
         ),
       );
@@ -221,7 +222,7 @@ class NotificationHelper {
     try {
       final icon = success ? '✅' : '❌';
       final title = success ? 'Restore completed' : 'Restore failed';
-      
+
       await _notifications.show(
         4, // Restore completion notification ID
         '$icon $title',
@@ -234,10 +235,11 @@ class NotificationHelper {
             importance: Importance.defaultImportance,
             priority: Priority.defaultPriority,
             autoCancel: true,
-            category: success 
-                ? AndroidNotificationCategory.status 
+            category: success
+                ? AndroidNotificationCategory.status
                 : AndroidNotificationCategory.error,
             colorized: true,
+            timeoutAfter: 2000, // 2 seconds
           ),
         ),
       );
@@ -274,6 +276,7 @@ class NotificationHelper {
             priority: Priority.defaultPriority,
             autoCancel: true,
             category: AndroidNotificationCategory.reminder,
+            timeoutAfter: 2000, // 2seconds
             actions: action != null ? [
               AndroidNotificationAction(
                 action,

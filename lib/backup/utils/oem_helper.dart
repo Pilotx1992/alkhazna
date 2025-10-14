@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'backup_constants.dart';
 
 /// OEM-specific handling for Chinese manufacturers and aggressive battery optimization
 class OEMHelper {
@@ -133,7 +134,6 @@ class OEMHelper {
         ];
       
       case OEMType.standard:
-      default:
         return [
           const Text('• Settings → Battery → Battery Optimization'),
           const Text('• Find AlKhazna → Don\'t optimize'),
@@ -167,7 +167,6 @@ class OEMHelper {
       case OEMType.emui:
         return false; // Not reliable, need fallback
       case OEMType.standard:
-      default:
         return true; // Generally reliable
     }
   }
@@ -182,7 +181,6 @@ class OEMHelper {
       case OEMType.funTouchOS:
       case OEMType.emui:
       case OEMType.standard:
-      default:
         return 'Weekly auto-backup recommended';
     }
   }
@@ -197,7 +195,7 @@ class OEMHelper {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(recommendation),
-          duration: const Duration(seconds: 4),
+          duration: BackupConstants.notificationDisplayDuration,
           action: SnackBarAction(
             label: 'Settings',
             onPressed: () => requestAutoStartPermission(context),
