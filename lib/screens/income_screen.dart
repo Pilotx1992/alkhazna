@@ -541,6 +541,10 @@ class _IncomeScreenState extends State<IncomeScreen> {
         name: entry.name,
         onAmountChanged: (newAmount) {
           setState(() {
+            // إذا كانت القيمة الجديدة > 0 وكانت القديمة 0، احفظ تاريخ الدفع الفعلي
+            if (newAmount > 0 && entry.amount == 0 && entry.createdAt == null) {
+              entry.createdAt = DateTime.now();
+            }
             entry.amount = newAmount;
             _calculateTotal();
           });

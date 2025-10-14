@@ -593,7 +593,8 @@ class PdfService {
           if (item is IncomeEntry) {
             amount = item.amount;
             name = item.name;
-            date = item.date;
+            // استخدام createdAt (تاريخ الدفع الفعلي) إذا كان موجوداً، وإلا date
+            date = item.createdAt ?? item.date;
           } else if (item is OutcomeEntry) {
             amount = item.amount;
             name = item.name;
@@ -618,7 +619,7 @@ class PdfService {
                 _buildExcelTableCell(
                   date != null
                       ? '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}'
-                      : '',
+                      : 'Not Set',
                   font,
                 ),
                 _buildExcelTableCell(

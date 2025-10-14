@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
@@ -138,7 +138,7 @@ class BackupService extends ChangeNotifier {
       await BackupScheduler.updateLastBackupTime();
 
       if (kDebugMode) {
-        print('✅ Backup completed successfully');
+        print('? Backup completed successfully');
         print('   Backup ID: $backupId');
         print('   Drive File ID: $driveFileId');
         print('   Original size: ${databaseBytes.length} bytes');
@@ -152,7 +152,7 @@ class BackupService extends ChangeNotifier {
 
     } catch (e) {
       if (kDebugMode) {
-        print('❌ Backup failed: $e');
+        print('? Backup failed: $e');
       }
       _updateProgress(0, BackupStatus.failed, 'Backup failed: ${e.toString()}');
       return false;
@@ -259,7 +259,7 @@ class BackupService extends ChangeNotifier {
       await BackupScheduler.updateLastBackupTime();
 
       if (kDebugMode) {
-        print('âœ… Backup completed successfully');
+        print('✅ Backup completed successfully');
         print('   Backup ID: $backupId');
         print('   Drive File ID: $driveFileId');
         print('   Original size: ${databaseBytes.length} bytes');
@@ -273,7 +273,7 @@ class BackupService extends ChangeNotifier {
 
     } catch (e) {
       if (kDebugMode) {
-        print('ðŸ’¥ Backup failed: $e');
+        print('💥 Backup failed: $e');
       }
       _updateProgress(0, BackupStatus.failed, 'Backup failed: ${e.toString()}');
       return false;
@@ -360,7 +360,7 @@ class BackupService extends ChangeNotifier {
       _updateProgress(100, null, 'Restore completed!', RestoreStatus.completed);
       
       if (kDebugMode) {
-        print('âœ… Restore completed successfully');
+        print('✅ Restore completed successfully');
       }
 
       return RestoreResult.success(
@@ -372,7 +372,7 @@ class BackupService extends ChangeNotifier {
 
     } catch (e) {
       if (kDebugMode) {
-        print('ðŸ’¥ Restore failed: $e');
+        print('💥 Restore failed: $e');
       }
       _updateProgress(0, null, 'Restore failed', RestoreStatus.failed);
       return RestoreResult.failure('Restore failed: ${e.toString()}');
@@ -420,9 +420,9 @@ class BackupService extends ChangeNotifier {
       final fileSize = int.tryParse(detailedFileInfo?.size ?? backupFile.size ?? '0') ?? 0;
       
       if (kDebugMode) {
-        print('ðŸ“Š Backup file size from API: ${backupFile.size}');
-        print('ðŸ“Š Detailed file size: ${detailedFileInfo?.size}');
-        print('ðŸ“Š Final file size: $fileSize bytes');
+        print('📊 Backup file size from API: ${backupFile.size}');
+        print('📊 Detailed file size: ${detailedFileInfo?.size}');
+        print('📊 Final file size: $fileSize bytes');
       }
       
       return BackupMetadata(
@@ -438,7 +438,7 @@ class BackupService extends ChangeNotifier {
       );
     } catch (e) {
       if (kDebugMode) {
-        print('ðŸ’¥ Error finding backup: $e');
+        print('💥 Error finding backup: $e');
       }
       return null;
     }
@@ -448,7 +448,7 @@ class BackupService extends ChangeNotifier {
   Future<Uint8List?> _createDatabaseBackup() async {
     try {
       if (kDebugMode) {
-        print('ðŸ’¾ Creating Hive database backup...');
+        print('💾 Creating Hive database backup...');
       }
 
       // Get all data from Hive boxes
@@ -459,8 +459,8 @@ class BackupService extends ChangeNotifier {
       final incomeData = <String, dynamic>{};
       
       if (kDebugMode) {
-        print('ðŸ“Š Income box keys: ${incomeBox.keys.toList()}');
-        print('ðŸ“Š Income box length: ${incomeBox.length}');
+        print('📊 Income box keys: ${incomeBox.keys.toList()}');
+        print('📊 Income box length: ${incomeBox.length}');
       }
       
       for (final key in incomeBox.keys) {
@@ -482,7 +482,7 @@ class BackupService extends ChangeNotifier {
           incomeData[key.toString()] = value;
         }
         if (kDebugMode) {
-          print('ðŸ“Š Income key: $key, value type: ${value.runtimeType}, length: ${value is List ? value.length : 'not a list'}');
+          print('📊 Income key: $key, value type: ${value.runtimeType}, length: ${value is List ? value.length : 'not a list'}');
         }
       }
       backupData['income_entries'] = incomeData;
@@ -492,8 +492,8 @@ class BackupService extends ChangeNotifier {
       final outcomeData = <String, dynamic>{};
       
       if (kDebugMode) {
-        print('ðŸ“Š Outcome box keys: ${outcomeBox.keys.toList()}');
-        print('ðŸ“Š Outcome box length: ${outcomeBox.length}');
+        print('📊 Outcome box keys: ${outcomeBox.keys.toList()}');
+        print('📊 Outcome box length: ${outcomeBox.length}');
       }
       
       for (final key in outcomeBox.keys) {
@@ -515,7 +515,7 @@ class BackupService extends ChangeNotifier {
           outcomeData[key.toString()] = value;
         }
         if (kDebugMode) {
-          print('ðŸ“Š Outcome key: $key, value type: ${value.runtimeType}, length: ${value is List ? value.length : 'not a list'}');
+          print('📊 Outcome key: $key, value type: ${value.runtimeType}, length: ${value is List ? value.length : 'not a list'}');
         }
       }
       backupData['outcome_entries'] = outcomeData;
@@ -525,7 +525,7 @@ class BackupService extends ChangeNotifier {
       final bytes = utf8.encode(jsonString);
       
       if (kDebugMode) {
-        print('ðŸ’¾ Encrypting database for backup...');
+        print('💾 Encrypting database for backup...');
         print('   Database size: ${bytes.length} bytes');
         print('   Income entries: ${incomeData.length} months');
         print('   Outcome entries: ${outcomeData.length} months');
@@ -534,7 +534,7 @@ class BackupService extends ChangeNotifier {
       return Uint8List.fromList(bytes);
     } catch (e) {
       if (kDebugMode) {
-        print('ðŸ’¥ Error creating database backup: $e');
+        print('💥 Error creating database backup: $e');
       }
       return null;
     }
@@ -544,12 +544,12 @@ class BackupService extends ChangeNotifier {
   Future<RestoreResult> _restoreDatabase(Uint8List databaseBytes) async {
     try {
       if (kDebugMode) {
-        print('ðŸ’¾ Restoring Hive database from backup...');
+        print('💾 Restoring Hive database from backup...');
       }
 
       if (databaseBytes.isEmpty) {
         if (kDebugMode) {
-          print('âš ï¸ No data to restore (empty backup)');
+          print('⚠️ No data to restore (empty backup)');
         }
 
         return RestoreResult.success(
@@ -579,6 +579,10 @@ class BackupService extends ChangeNotifier {
             final entryList = (entry.value as List).map((item) {
               try {
                 if (item is Map<String, dynamic>) {
+                  // Backward compatibility: add createdAt if missing
+                  if (!item.containsKey('createdAt') && item['amount'] != null && (item['amount'] as num) > 0) {
+                    item['createdAt'] = item['date'];
+                  }
                   return IncomeEntry.fromJson(item);
                 } else if (item is IncomeEntry) {
                   return item; // Already correct type
@@ -588,7 +592,7 @@ class BackupService extends ChangeNotifier {
                 }
               } catch (e) {
                 if (kDebugMode) {
-                  print('âš ï¸ Error converting income entry: $e, item: $item');
+                  print('⚠️ Error converting income entry: $e, item: $item');
                 }
                 rethrow;
               }
@@ -598,7 +602,7 @@ class BackupService extends ChangeNotifier {
             restoredIncomeEntries += entryList.length;
             
             if (kDebugMode) {
-              print('ðŸ“± Restored ${entry.key}: ${entryList.length} income entries');
+              print('📱 Restored ${entry.key}: ${entryList.length} income entries');
             }
           } else {
             await incomeBox.put(entry.key, entry.value);
@@ -606,7 +610,7 @@ class BackupService extends ChangeNotifier {
         }
         
         if (kDebugMode) {
-          print('ðŸ“± Restored ${incomeData.length} income months total');
+          print('📱 Restored ${incomeData.length} income months total');
         }
       }
 
@@ -631,7 +635,7 @@ class BackupService extends ChangeNotifier {
                 }
               } catch (e) {
                 if (kDebugMode) {
-                  print('âš ï¸ Error converting outcome entry: $e, item: $item');
+                  print('⚠️ Error converting outcome entry: $e, item: $item');
                 }
                 rethrow;
               }
@@ -641,7 +645,7 @@ class BackupService extends ChangeNotifier {
             restoredOutcomeEntries += entryList.length;
             
             if (kDebugMode) {
-              print('ðŸ“± Restored ${entry.key}: ${entryList.length} outcome entries');
+              print('📱 Restored ${entry.key}: ${entryList.length} outcome entries');
             }
           } else {
             await outcomeBox.put(entry.key, entry.value);
@@ -649,12 +653,12 @@ class BackupService extends ChangeNotifier {
         }
         
         if (kDebugMode) {
-          print('ðŸ“± Restored ${outcomeData.length} outcome months total');
+          print('📱 Restored ${outcomeData.length} outcome months total');
         }
       }
 
       if (kDebugMode) {
-        print('âœ… Database restored successfully');
+        print('✅ Database restored successfully');
         print('   Total income entries: $restoredIncomeEntries');
         print('   Total outcome entries: $restoredOutcomeEntries');
       }
@@ -667,7 +671,7 @@ class BackupService extends ChangeNotifier {
       );
     } catch (e) {
       if (kDebugMode) {
-        print('ðŸ’¥ Error restoring database: $e');
+        print('💥 Error restoring database: $e');
       }
       return RestoreResult.failure('Failed to restore database: ${e.toString()}');
     }
@@ -685,7 +689,7 @@ class BackupService extends ChangeNotifier {
       // This would typically be saved to SharedPreferences or local database
       // For now, we'll just log it
       if (kDebugMode) {
-        print('ðŸ’¾ Backup metadata:');
+        print('💾 Backup metadata:');
         print('   ID: $backupId');
         print('   Drive File ID: $driveFileId');
         print('   User: ${currentUser?.email}');
@@ -694,7 +698,7 @@ class BackupService extends ChangeNotifier {
       }
     } catch (e) {
       if (kDebugMode) {
-        print('ðŸ’¥ Error saving backup metadata: $e');
+        print('💥 Error saving backup metadata: $e');
       }
     }
   }
@@ -707,7 +711,7 @@ class BackupService extends ChangeNotifier {
              connectivityResult.contains(ConnectivityResult.wifi);
     } catch (e) {
       if (kDebugMode) {
-        print('ðŸ’¥ Error checking connectivity: $e');
+        print('💥 Error checking connectivity: $e');
       }
       return false;
     }
@@ -751,7 +755,7 @@ class BackupService extends ChangeNotifier {
       return await _driveService.getAvailableStorage();
     } catch (e) {
       if (kDebugMode) {
-        print('ðŸ’¥ Error getting storage info: $e');
+        print('💥 Error getting storage info: $e');
       }
       return null;
     }
@@ -805,14 +809,14 @@ class BackupService extends ChangeNotifier {
   Future<void> _verifyBackupSilently(String backupId, String driveFileId) async {
     try {
       if (kDebugMode) {
-        print('🔍 Starting silent verification for backup: $backupId');
+        print('?? Starting silent verification for backup: $backupId');
       }
 
       // Get file info from Drive
       final fileInfo = await _driveService.getFileInfo(driveFileId);
       if (fileInfo == null) {
         if (kDebugMode) {
-          print('❌ Verification failed: File not found on Drive');
+          print('? Verification failed: File not found on Drive');
         }
         return;
       }
@@ -821,7 +825,7 @@ class BackupService extends ChangeNotifier {
       final downloadedBytes = await _driveService.downloadFile(driveFileId);
       if (downloadedBytes == null || downloadedBytes.isEmpty) {
         if (kDebugMode) {
-          print('❌ Verification failed: Could not download file');
+          print('? Verification failed: Could not download file');
         }
         return;
       }
@@ -832,7 +836,7 @@ class BackupService extends ChangeNotifier {
         final expectedSize = int.tryParse(sizeString) ?? 0;
         if (expectedSize > 0 && downloadedBytes.length != expectedSize) {
           if (kDebugMode) {
-            print('❌ Verification failed: Size mismatch (expected: $expectedSize, actual: ${downloadedBytes.length})');
+            print('? Verification failed: Size mismatch (expected: $expectedSize, actual: ${downloadedBytes.length})');
           }
           return;
         }
@@ -845,7 +849,7 @@ class BackupService extends ChangeNotifier {
       final masterKey = await _keyManager.getOrCreatePersistentMasterKey();
       if (masterKey == null) {
         if (kDebugMode) {
-          print('❌ Verification failed: Could not get master key');
+          print('? Verification failed: Could not get master key');
         }
         return;
       }
@@ -857,13 +861,13 @@ class BackupService extends ChangeNotifier {
 
       if (decryptedBytes == null || decryptedBytes.isEmpty) {
         if (kDebugMode) {
-          print('❌ Verification failed: Decryption failed');
+          print('? Verification failed: Decryption failed');
         }
         return;
       }
 
       if (kDebugMode) {
-        print('✅ Backup verified successfully!');
+        print('? Backup verified successfully!');
         print('   Backup ID: $backupId');
         print('   File ID: $driveFileId');
         print('   Size: ${downloadedBytes.length} bytes');
@@ -872,7 +876,7 @@ class BackupService extends ChangeNotifier {
 
     } catch (e) {
       if (kDebugMode) {
-        print('❌ Silent verification error: $e');
+        print('? Silent verification error: $e');
       }
     }
   }
@@ -900,3 +904,4 @@ class BackupVerificationReport {
     this.error,
   });
 }
+

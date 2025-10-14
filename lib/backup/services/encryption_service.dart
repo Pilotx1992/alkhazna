@@ -193,12 +193,15 @@ class EncryptionService {
     try {
       if (kDebugMode) {
         print('💾 Decrypting database from backup...');
+        print('   Backup keys: ${encryptedBackup.keys.toList()}');
+        print('   Encrypted field: ${encryptedBackup['encrypted']} (type: ${encryptedBackup['encrypted'].runtimeType})');
       }
 
-      // Validate backup format
-      if (encryptedBackup['encrypted'] != true) {
+      // Validate backup format (handle both bool and string types from JSON)
+      final encrypted = encryptedBackup['encrypted'];
+      if (encrypted != true && encrypted != 'true') {
         if (kDebugMode) {
-          print('❌ Backup is not encrypted');
+          print('❌ Backup is not encrypted (encrypted field: $encrypted)');
         }
         return null;
       }
@@ -295,11 +298,12 @@ class EncryptionService {
 
   /// Validate encryption format
   bool isValidEncryptedFormat(Map<String, dynamic> data) {
+    final encrypted = data['encrypted'];
     return data.containsKey('encrypted') &&
            data.containsKey('data') &&
            data.containsKey('iv') &&
            data.containsKey('tag') &&
-           data['encrypted'] == true;
+           (encrypted == true || encrypted == 'true');
   }
 
   /// Get encryption info for debugging

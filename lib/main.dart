@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'models/income_entry.dart';
@@ -135,6 +137,54 @@ class AppTheme {
   }
 }
 
+/// Migrate old income entries to add createdAt field
+Future<void> _migrateIncomeEntries() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final migrationDone = prefs.getBool('income_createdAt_migration') ?? false;
+    
+    if (migrationDone) {
+      return; // Migration already done
+    }
+
+    final incomeBox = await Hive.openBox<List<dynamic>>('income_entries');
+    int migratedCount = 0;
+
+    for (final key in incomeBox.keys) {
+      final value = incomeBox.get(key);
+      if (value is List) {
+        bool modified = false;
+        final updatedList = value.map((item) {
+          if (item is IncomeEntry) {
+            // إذا كان amount > 0 وليس له createdAt، استخدم date كـ createdAt
+            if (item.amount > 0 && item.createdAt == null) {
+              item.createdAt = item.date;
+              modified = true;
+              migratedCount++;
+            }
+          }
+          return item;
+        }).toList();
+        
+        if (modified) {
+          await incomeBox.put(key, updatedList);
+        }
+      }
+    }
+
+    // Mark migration as done
+    await prefs.setBool('income_createdAt_migration', true);
+    
+    if (kDebugMode) {
+      print('✅ Migration completed: $migratedCount income entries updated');
+    }
+  } catch (e) {
+    if (kDebugMode) {
+      print('⚠️ Migration error: $e');
+    }
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -166,6 +216,9 @@ void main() async {
   // Initialize backup scheduler and notifications for auto-backup functionality
   await BackupScheduler.initialize();
   await NotificationHelper().initialize();
+
+  // Migrate old data to add createdAt field
+  await _migrateIncomeEntries();
 
   runApp(const AlKhaznaApp());
 }
