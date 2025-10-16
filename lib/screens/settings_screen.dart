@@ -180,10 +180,8 @@ class SettingsScreen extends StatelessWidget {
               ),
               
               // Sign Out Icon Button (top right)
-              IconButton(
-                icon: Icon(Icons.logout, color: Colors.red),
-                tooltip: 'Sign Out',
-                onPressed: () {
+              InkWell(
+                onTap: () {
                   showDialog(
                     context: context,
                     builder: (context) => AlertDialog(
@@ -212,6 +210,13 @@ class SettingsScreen extends StatelessWidget {
                     ),
                   );
                 },
+                borderRadius: BorderRadius.circular(24),
+                splashColor: Colors.red.withValues(alpha: 0.1),
+                highlightColor: Colors.red.withValues(alpha: 0.05),
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Icon(Icons.logout, color: Colors.red, size: 24),
+                ),
               ),
             ],
           ),
