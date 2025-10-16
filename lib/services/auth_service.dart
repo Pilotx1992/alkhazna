@@ -324,10 +324,19 @@ class AuthService extends ChangeNotifier {
           backupGoogleAccountEmail: account.email,
         );
         
+        // Set profile image URL
+        user.profileImageUrl = account.photoUrl;
+        
         await _usersBox!.put(user.id, user);
       } else {
         // Update existing user's Google account info
         user.linkGoogleAccount(account.id, account.email);
+        
+        // Update profile image URL if not already set
+        if (user.profileImageUrl == null || user.profileImageUrl!.isEmpty) {
+          user.profileImageUrl = account.photoUrl;
+          user.save();
+        }
       }
 
       await _secureStorage.write(key: _currentUserKey, value: user.id);
@@ -402,6 +411,13 @@ class AuthService extends ChangeNotifier {
       if (account == null) return false;
 
       user.linkGoogleAccount(account.id, account.email);
+      
+      // Update profile image URL if not already set
+      if (user.profileImageUrl == null || user.profileImageUrl!.isEmpty) {
+        user.profileImageUrl = account.photoUrl;
+        user.save();
+      }
+      
       _updateState(_authState.copyWith(currentUser: user));
       return true;
 

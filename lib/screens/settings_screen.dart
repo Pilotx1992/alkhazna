@@ -129,9 +129,11 @@ class SettingsScreen extends StatelessWidget {
               Center(
                 child: CircleAvatar(
                   radius: 22,
-                  backgroundImage: user?.profileImageUrl != null ? NetworkImage(user!.profileImageUrl!) : null,
+                  backgroundImage: user?.profileImageUrl != null && user!.profileImageUrl!.isNotEmpty
+                      ? NetworkImage(user!.profileImageUrl!)
+                      : null,
                   backgroundColor: cs.primary.withValues(alpha: 0.12),
-                  child: user?.profileImageUrl == null
+                  child: user?.profileImageUrl == null || user!.profileImageUrl!.isEmpty
                       ? Icon(
                           user?.username.isNotEmpty == true ? Icons.person : Icons.account_circle,
                           color: cs.primary,
