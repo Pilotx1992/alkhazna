@@ -173,9 +173,9 @@ class PinInputWidgetState extends State<PinInputWidget>
               return AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeInOut,
-                margin: const EdgeInsets.symmetric(horizontal: 8),
-                width: 60,
-                height: 60,
+                margin: const EdgeInsets.symmetric(horizontal: 6),
+                width: 50,
+                height: 50,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: isFilled
@@ -201,7 +201,7 @@ class PinInputWidgetState extends State<PinInputWidget>
                         child: Icon(
                           Icons.circle,
                           color: Colors.white,
-                          size: 20,
+                          size: 16,
                         ),
                       )
                     : null,
