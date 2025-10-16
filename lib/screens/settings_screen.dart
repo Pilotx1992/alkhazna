@@ -333,155 +333,59 @@ class SettingsScreen extends StatelessWidget {
 
   // ---------------- Backup Section ----------------
   Widget _buildBackupSection(Color surfaceCard, Color sectionTitleColor, user, context) {
-    final isConnected = user?.hasLinkedGoogleAccount == true;
-    
+    Widget row({
+      required IconData icon,
+      required String title,
+      required VoidCallback onTap,
+      Color? iconColor,
+      bool topDivider = false,
+    }) {
+      return Column(
+        children: [
+          if (topDivider) Divider(height: 1, color: sectionTitleColor.withValues(alpha: 0.12)),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            child: Row(
+              children: [
+                Icon(icon, color: iconColor ?? sectionTitleColor.withValues(alpha: 0.8)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(color: sectionTitleColor, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                Icon(Icons.chevron_right, color: sectionTitleColor),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: surfaceCard,
         borderRadius: BorderRadius.circular(18),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 18, offset: const Offset(0, 10))],
       ),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Backup & Storage', style: TextStyle(color: sectionTitleColor, fontSize: 16, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 14),
-          
-          // Enhanced Backup Button with gradient
-          GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
+          const SizedBox(height: 6),
+          row(
+            icon: Icons.backup,
+            title: 'Backup & Restore',
+            iconColor: const Color(0xFF2196F3),
+            onTap: () {
+              Navigator.push(
+                context,
                 MaterialPageRoute(builder: (context) => const BackupScreen()),
               );
             },
-            child: Container(
-              height: 60,
-              decoration: BoxDecoration(
-                gradient: isConnected
-                    ? const LinearGradient(
-                        colors: [Color(0xFF10B981), Color(0xFF059669)],
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                      )
-                    : const LinearGradient(
-                        colors: [Color(0xFF40BEFF), Color(0xFF12C9B6)],
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                      ),
-                borderRadius: BorderRadius.circular(30),
-                boxShadow: [
-                  BoxShadow(
-                    color: (isConnected ? const Color(0xFF10B981) : const Color(0xFF12C9B6)).withValues(alpha: 0.4),
-                    blurRadius: 20,
-                    spreadRadius: 1,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Status Icon
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      isConnected ? Icons.cloud_done : Icons.cloud_upload,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  
-                  // Text Content
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          isConnected ? 'Backup & Restore' : 'Connect Backup',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 15.5,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          isConnected
-                              ? 'Connected to ${user!.backupGoogleAccountEmail.split('@').first}'
-                              : 'Enable cloud backup now',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.85),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  // Arrow Icon
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.arrow_forward_ios,
-                      color: Colors.white,
-                      size: 16,
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ),
-          
-          // Additional Info
-          if (isConnected) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF10B981).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: const Color(0xFF10B981).withValues(alpha: 0.3),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.verified,
-                    color: const Color(0xFF10B981),
-                    size: 18,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Your data is backed up and encrypted',
-                      style: TextStyle(
-                        color: sectionTitleColor.withValues(alpha: 0.8),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
         ],
       ),
     );
