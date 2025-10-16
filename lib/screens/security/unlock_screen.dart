@@ -179,12 +179,11 @@ class _UnlockScreenState extends State<UnlockScreen> {
       child: Scaffold(
         backgroundColor: Colors.grey[50],
         body: SafeArea(
-          child: SingleChildScrollView(
+          child: Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const SizedBox(height: 60),
-
                 // App Logo
                 Container(
                   width: 80,
@@ -200,7 +199,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
                   ),
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
 
                 Text(
                   'Al Khazna',
@@ -210,7 +209,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
                       ),
                 ),
 
-                const SizedBox(height: 60),
+                const SizedBox(height: 16),
 
                 // Lockout message
                 if (isLockedOut) ...[
@@ -245,7 +244,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 24),
                 ],
 
                 // PIN Input

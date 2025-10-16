@@ -140,7 +140,7 @@ class PinInputWidgetState extends State<PinInputWidget>
         ),
 
         if (widget.subtitle != null) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Text(
@@ -153,7 +153,7 @@ class PinInputWidgetState extends State<PinInputWidget>
           ),
         ],
 
-        const SizedBox(height: 40),
+        const SizedBox(height: 24),
 
         // PIN Dots with shake animation
         AnimatedBuilder(
@@ -211,9 +211,9 @@ class PinInputWidgetState extends State<PinInputWidget>
         ),
 
         // Error Message
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         SizedBox(
-          height: 24,
+          height: 20,
           child: widget.errorMessage != null
               ? Text(
                   widget.errorMessage!,
@@ -227,7 +227,7 @@ class PinInputWidgetState extends State<PinInputWidget>
               : null,
         ),
 
-        const SizedBox(height: 40),
+        const SizedBox(height: 24),
 
         // Numeric Keypad
         _buildKeypad(),
