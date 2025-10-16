@@ -6,11 +6,14 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/security/unlock_screen.dart';
 import 'models/income_entry.dart';
 import 'models/outcome_entry.dart';
 import 'models/user.dart';
 import 'models/entry_list_adapters.dart';
+import 'models/security_settings.dart';
 import 'services/auth_service.dart';
+import 'services/security_service.dart';
 import 'services/connectivity_service.dart';
 import 'backup/utils/backup_scheduler.dart';
 import 'backup/utils/notification_helper.dart';
@@ -212,6 +215,10 @@ void main() async {
   if (!Hive.isAdapterRegistered(4)) {
     Hive.registerAdapter(UserAdapter());
   }
+  // SecuritySettings adapter for PIN/biometric (using typeId 5)
+  if (!Hive.isAdapterRegistered(5)) {
+    Hive.registerAdapter(SecuritySettingsAdapter());
+  }
 
   // Initialize backup scheduler and notifications for auto-backup functionality
   await BackupScheduler.initialize();
@@ -223,8 +230,40 @@ void main() async {
   runApp(const AlKhaznaApp());
 }
 
-class AlKhaznaApp extends StatelessWidget {
+class AlKhaznaApp extends StatefulWidget {
   const AlKhaznaApp({super.key});
+
+  @override
+  State<AlKhaznaApp> createState() => _AlKhaznaAppState();
+}
+
+class _AlKhaznaAppState extends State<AlKhaznaApp> with WidgetsBindingObserver {
+  late SecurityService _securityService;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _securityService = SecurityService();
+    _securityService.initialize();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      // Lock app when going to background
+      _securityService.lockApp();
+    } else if (state == AppLifecycleState.resumed) {
+      // App resumed - SecurityWrapper will handle showing unlock screen if needed
+      setState(() {}); // Trigger rebuild
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -232,11 +271,12 @@ class AlKhaznaApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (context) => AuthService()..initialize()),
         ChangeNotifierProvider(create: (context) => BackupService()),
+        ChangeNotifierProvider.value(value: _securityService), // Security service
       ],
       child: MaterialApp(
         title: 'Al Khazna',
         theme: AppTheme.lightTheme,
-        home: const AuthWrapper(),
+        home: const SecurityWrapper(), // Wrap with SecurityWrapper
         locale: const Locale('en', ''),
         localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,
@@ -248,6 +288,27 @@ class AlKhaznaApp extends StatelessWidget {
           Locale('en', ''),
         ],
       ),
+    );
+  }
+}
+
+/// SecurityWrapper checks if app is locked
+/// Shows UnlockScreen if locked, otherwise shows normal flow
+class SecurityWrapper extends StatelessWidget {
+  const SecurityWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<SecurityService>(
+      builder: (context, securityService, child) {
+        // If locked and PIN is enabled, show unlock screen
+        if (securityService.isLocked && securityService.isPinEnabled) {
+          return const UnlockScreen();
+        }
+
+        // Otherwise, show normal auth flow
+        return const AuthWrapper();
+      },
     );
   }
 }

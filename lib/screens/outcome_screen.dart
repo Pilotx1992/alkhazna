@@ -523,15 +523,6 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
     );
   }
 
-  int _getMonthNumber(String monthName) {
-    const monthMap = {
-      'January': 1, 'February': 2, 'March': 3, 'April': 4,
-      'May': 5, 'June': 6, 'July': 7, 'August': 8,
-      'September': 9, 'October': 10, 'November': 11, 'December': 12
-    };
-    return monthMap[monthName] ?? 1;
-  }
-
   @override
   void dispose() {
     _scrollController.dispose();

@@ -492,7 +492,7 @@ class AuthService extends ChangeNotifier {
 
   /// Hash password using bcrypt-style approach
   String _hashPassword(String password) {
-    final bytes = utf8.encode(password + 'alkhazna_salt_2024'); // Add salt
+    final bytes = utf8.encode('${password}alkhazna_salt_2024'); // Add salt
     final digest = sha256.convert(bytes);
     return digest.toString();
   }

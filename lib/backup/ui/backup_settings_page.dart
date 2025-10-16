@@ -47,8 +47,8 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
       if (_backupService.isSignedIn) {
         try {
           final meta = await _backupService.findExistingBackup();
-          if (meta != null && meta.createdAt != null) {
-            lastBackupDrive = meta.createdAt!.toLocal();
+          if (meta != null) {
+            lastBackupDrive = meta.createdAt.toLocal();
             if (kDebugMode) {
               print('✅ Drive backup time: $lastBackupDrive');
             }
@@ -656,7 +656,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
   Future<void> _signInToGoogle() async {
     try {
       // The BackupService will handle Google Sign-In
-      final success = await _backupService.isSignedIn;
+      final success = _backupService.isSignedIn;
       if (success) {
         _loadSettings();
       } else {
@@ -686,7 +686,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
     try {
       // أبسط طريقة مضمونة: signOut ثم signIn لعرض شاشة اختيار الحساب
       await _backupService.signOut();
-      final success = await _backupService.isSignedIn;
+      final success = _backupService.isSignedIn;
       if (success) {
         _loadSettings();
       }

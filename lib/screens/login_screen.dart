@@ -7,7 +7,6 @@ import '../services/auth_service.dart';
 import 'signup_screen.dart';
 import 'home_screen.dart';
 import '../backup/ui/backup_screen.dart';
-import 'biometric_settings_screen.dart';
 import 'forgot_password_screen.dart';
 
 /// Modern login screen with eye-comfort design
@@ -183,46 +182,15 @@ class _LoginScreenState extends State<LoginScreen>
         foregroundColor: Colors.indigo,
         centerTitle: true,
         actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, color: Colors.indigo),
-            onSelected: (String value) {
-              switch (value) {
-                case 'backup':
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const BackupScreen()),
-                  );
-                  break;
-                case 'biometric':
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const BiometricSettingsScreen()),
-                  );
-                  break;
-              }
+          IconButton(
+            icon: const Icon(Icons.cloud_outlined, color: Colors.indigo),
+            tooltip: 'Backup & Restore',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const BackupScreen()),
+              );
             },
-            itemBuilder: (BuildContext context) => [
-              const PopupMenuItem<String>(
-                value: 'backup',
-                child: Row(
-                  children: [
-                    Icon(Icons.cloud_outlined, color: Colors.indigo),
-                    SizedBox(width: 8),
-                    Text('Backup & Restore'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem<String>(
-                value: 'biometric',
-                child: Row(
-                  children: [
-                    Icon(Icons.fingerprint, color: Colors.indigo),
-                    SizedBox(width: 8),
-                    Text('Biometric Settings'),
-                  ],
-                ),
-              ),
-            ],
           ),
         ],
       ),

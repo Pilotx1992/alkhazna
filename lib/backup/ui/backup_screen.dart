@@ -7,7 +7,6 @@ import '../models/backup_status.dart';
 import '../utils/backup_scheduler.dart';
 import '../utils/oem_helper.dart';
 import 'backup_progress_sheet.dart';
-import 'backup_verification_sheet.dart';
 import '../../services/data_sharing_service.dart';
 import '../../screens/import_screen.dart';
 
@@ -64,8 +63,8 @@ class _BackupScreenState extends State<BackupScreen> {
       if (_backupService.isSignedIn) {
         try {
           final meta = await _backupService.findExistingBackup();
-          if (meta != null && meta.createdAt != null) {
-            lastBackupDrive = meta.createdAt!.toLocal();
+          if (meta != null) {
+            lastBackupDrive = meta.createdAt.toLocal();
             if (kDebugMode) {
               print('✅ Drive backup time: $lastBackupDrive');
             }

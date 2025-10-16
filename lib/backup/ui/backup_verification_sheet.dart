@@ -16,7 +16,7 @@ class _BackupVerificationSheetState extends State<BackupVerificationSheet> {
   
   bool _isLoading = true;
   bool _isVerifying = false;
-  List<BackupVerificationReport> _verificationReports = [];
+  final List<BackupVerificationReport> _verificationReports = [];
   String? _errorMessage;
   GoogleSignInAccount? _currentUser;
 

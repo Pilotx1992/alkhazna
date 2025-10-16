@@ -36,7 +36,10 @@
       "Bash(ren:*)",
       "Bash(fc:*)",
       "Bash(mv:*)",
-      "Bash(clip)"
+      "Bash(clip)",
+      "Bash(timeout:*)",
+      "Read(//d/Updated Projects/alkhazna/lib/backup/services/**)",
+      "Bash(powershell -Command \"Get-Content lib/backup/ui/backup_screen.dart | ForEach-Object { $_-replace ''\\.withOpacity\\(([0-9.]+)\\)'', ''.withValues(alpha: $1)'' } | Set-Content lib/backup/ui/backup_screen.dart.tmp && Move-Item -Force lib/backup/ui/backup_screen.dart.tmp lib/backup/ui/backup_screen.dart\")"
     ],
     "deny": [],
     "ask": []

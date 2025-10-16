@@ -1,5 +1,6 @@
 import 'package:provider/provider.dart';
 import 'login_screen.dart';
+import 'settings_screen.dart';
 import '../backup/ui/backup_screen.dart';
 import '../backup/services/backup_service.dart';
 
@@ -581,12 +582,22 @@ class _HomeScreenState extends State<HomeScreen> {
               ? const Icon(
                   Icons.wifi_off,
                   size: 20,
-                  color: Colors.orange,
+                  color: Colors.red,
                 )
               : null,
           backgroundColor: colorScheme.surface,
           elevation: 0,
           actions: [
+            IconButton(
+              icon: const Icon(Icons.settings),
+              tooltip: 'Settings',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                );
+              },
+            ),
             IconButton(
               icon: const Icon(Icons.logout),
               tooltip: 'Sign Out',

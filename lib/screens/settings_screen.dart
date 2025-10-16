@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../services/auth_service.dart';
+import '../services/security_service.dart';
 import '../backup/ui/backup_screen.dart';
-import 'biometric_settings_screen.dart';
+import 'security/setup_pin_screen.dart';
+import 'security/change_pin_screen.dart';
+import 'security/verify_pin_screen.dart';
 import 'login_screen.dart';
 
 /// Comprehensive settings and user profile screen
@@ -13,6 +16,7 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
+    final securityService = Provider.of<SecurityService>(context);
     final user = authService.authState.currentUser;
     final theme = Theme.of(context);
 
@@ -107,7 +111,7 @@ class SettingsScreen extends StatelessWidget {
 
             // Security Section
             Text(
-              'Security',
+              'Security & Privacy',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: Colors.grey[700],
@@ -118,51 +122,148 @@ class SettingsScreen extends StatelessWidget {
             Card(
               child: Column(
                 children: [
+                  // App Lock (PIN)
                   ListTile(
                     leading: CircleAvatar(
                       backgroundColor: Colors.indigo.shade50,
-                      child: Icon(Icons.fingerprint, color: Colors.indigo),
+                      child: Icon(Icons.lock, color: Colors.indigo),
                     ),
-                    title: const Text('Biometric Authentication'),
+                    title: const Text('App Lock (PIN)'),
                     subtitle: Text(
-                      user?.biometricEnabled == true
-                          ? 'Enabled'
-                          : 'Disabled',
+                      securityService.isPinEnabled ? 'Enabled' : 'Disabled',
                       style: TextStyle(
-                        color: user?.biometricEnabled == true
+                        color: securityService.isPinEnabled
                             ? Colors.green
                             : Colors.grey[600],
                       ),
                     ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const BiometricSettingsScreen(),
-                        ),
-                      );
-                    },
+                    trailing: Switch(
+                      value: securityService.isPinEnabled,
+                      onChanged: (value) async {
+                        if (value) {
+                          // Enable PIN - navigate to setup
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const SetupPinScreen(),
+                            ),
+                          );
+                          if (result == true && context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('PIN protection enabled!'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          }
+                        } else {
+                          // Disable PIN - verify first
+                          final verified = await Navigator.push<bool>(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const VerifyPinScreen(
+                                title: 'Verify PIN to Disable',
+                              ),
+                            ),
+                          );
+                          if (verified == true && context.mounted) {
+                            await securityService.deletePin();
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('PIN protection disabled'),
+                                  backgroundColor: Colors.orange,
+                                ),
+                              );
+                            }
+                          }
+                        }
+                      },
+                    ),
                   ),
                   const Divider(height: 1),
+
+                  // Biometric Unlock
                   ListTile(
                     leading: CircleAvatar(
-                      backgroundColor: Colors.orange.shade50,
-                      child: Icon(Icons.lock_reset, color: Colors.orange),
+                      backgroundColor: Colors.teal.shade50,
+                      child: Icon(Icons.fingerprint, color: Colors.teal),
                     ),
-                    title: const Text('Change Password'),
-                    subtitle: const Text('Update your account password'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      // TODO: Implement change password functionality
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Change password feature coming soon!'),
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                    },
+                    title: const Text('Biometric Unlock'),
+                    subtitle: Text(
+                      !securityService.isPinEnabled
+                          ? 'Requires PIN to be enabled first'
+                          : securityService.isBiometricEnabled
+                              ? 'Enabled'
+                              : 'Disabled',
+                      style: TextStyle(
+                        color: securityService.isBiometricEnabled
+                            ? Colors.green
+                            : Colors.grey[600],
+                      ),
+                    ),
+                    trailing: Switch(
+                      value: securityService.isBiometricEnabled,
+                      onChanged: securityService.isPinEnabled
+                          ? (value) async {
+                              try {
+                                if (value) {
+                                  await securityService.enableBiometric();
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Biometric unlock enabled!'),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                  }
+                                } else {
+                                  await securityService.disableBiometric();
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Biometric unlock disabled'),
+                                        backgroundColor: Colors.orange,
+                                      ),
+                                    );
+                                  }
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Error: $e'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              }
+                            }
+                          : null,
+                    ),
                   ),
+
+                  // Change PIN (only show if PIN is enabled)
+                  if (securityService.isPinEnabled) ...[
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: Colors.orange.shade50,
+                        child: Icon(Icons.pin, color: Colors.orange),
+                      ),
+                      title: const Text('Change PIN'),
+                      subtitle: const Text('Update your security PIN'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ChangePinScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ],
               ),
             ),
