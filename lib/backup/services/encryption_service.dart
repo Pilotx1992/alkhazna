@@ -192,16 +192,17 @@ class EncryptionService {
   }) async {
     try {
       if (kDebugMode) {
-        print('💾 Decrypting database from backup...');
-        print('   Backup keys: ${encryptedBackup.keys.toList()}');
-        print('   Encrypted field: ${encryptedBackup['encrypted']} (type: ${encryptedBackup['encrypted'].runtimeType})');
+        print('[EncryptionService] 💾 Decrypting database from backup...');
+        print('[EncryptionService]    Backup keys: ${encryptedBackup.keys.toList()}');
+        print('[EncryptionService]    Encrypted field: ${encryptedBackup['encrypted']} (type: ${encryptedBackup['encrypted'].runtimeType})');
+        print('[EncryptionService]    Master key length: ${masterKey.length} bytes');
       }
 
       // Validate backup format (handle both bool and string types from JSON)
       final encrypted = encryptedBackup['encrypted'];
       if (encrypted != true && encrypted != 'true') {
         if (kDebugMode) {
-          print('❌ Backup is not encrypted (encrypted field: $encrypted)');
+          print('[EncryptionService] ❌ Backup is not encrypted (encrypted field: $encrypted)');
         }
         return null;
       }
@@ -209,9 +210,15 @@ class EncryptionService {
       final backupId = encryptedBackup['backup_id'] as String?;
       if (backupId == null) {
         if (kDebugMode) {
-          print('❌ Missing backup ID');
+          print('[EncryptionService] ❌ Missing backup ID');
         }
         return null;
+      }
+
+      if (kDebugMode) {
+        print('[EncryptionService]    Backup ID: $backupId');
+        print('[EncryptionService]    Version: ${encryptedBackup['version']}');
+        print('[EncryptionService]    Timestamp: ${encryptedBackup['timestamp']}');
       }
 
       // Verify checksum of encrypted data before decryption (if present)
@@ -224,14 +231,22 @@ class EncryptionService {
             final _actual = sha256.convert(_cipher).toString();
             if (_actual != _expected) {
               if (kDebugMode) {
-                print('Integrity check failed: checksum mismatch');
+                print('[EncryptionService] ❌ Integrity check failed: checksum mismatch');
+                print('[EncryptionService]    Expected: $_expected');
+                print('[EncryptionService]    Actual: $_actual');
               }
               return null;
+            } else {
+              if (kDebugMode) {
+                print('[EncryptionService] ✅ Checksum verified successfully');
+              }
             }
           }
         }
-      } catch (_) {
-        // If checksum block throws, fail closed
+      } catch (e) {
+        if (kDebugMode) {
+          print('[EncryptionService] ❌ Checksum verification error: $e');
+        }
         return null;
       }
 
@@ -246,6 +261,10 @@ class EncryptionService {
       final associatedData = 'alkhazna_backup_$backupId';
 
       // Decrypt the database
+      if (kDebugMode) {
+        print('[EncryptionService] 🔓 Starting decryption with associated data: $associatedData');
+      }
+
       final decryptedData = await decryptData(
         encryptedData: encryptedData,
         masterKey: masterKey,
@@ -254,15 +273,21 @@ class EncryptionService {
 
       if (decryptedData != null) {
         if (kDebugMode) {
-          print('✅ Database decrypted from backup');
-          print('   Decrypted size: ${decryptedData.length} bytes');
+          print('[EncryptionService] ✅ Database decrypted from backup');
+          print('[EncryptionService]    Decrypted size: ${decryptedData.length} bytes');
+          print('[EncryptionService]    Original size from metadata: ${encryptedBackup['original_size']}');
+        }
+      } else {
+        if (kDebugMode) {
+          print('[EncryptionService] ❌ Decryption returned null - likely wrong key or corrupted data');
         }
       }
 
       return decryptedData;
-    } catch (e) {
+    } catch (e, stackTrace) {
       if (kDebugMode) {
-        print('💥 Database decryption failed: $e');
+        print('[EncryptionService] 💥 Database decryption failed: $e');
+        print('[EncryptionService] Stack trace: $stackTrace');
       }
       return null;
     }

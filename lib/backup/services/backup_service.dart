@@ -70,11 +70,16 @@ class BackupService extends ChangeNotifier {
         }
       }
 
-      // Step 2: Silent authentication
+      // Step 2: Silent authentication and initialize Drive with same session
       _updateProgress(10, BackupStatus.preparing, 'Signing in...');
       final authHeaders = await _driveAuthService.getAuthHeaders(interactiveFallback: true);
       if (authHeaders == null) {
         _updateProgress(0, BackupStatus.failed, 'Sign-in failed');
+        return false;
+      }
+      final driveReady = await _driveService.initialize(authHeaders: authHeaders);
+      if (!driveReady) {
+        _updateProgress(0, BackupStatus.failed, 'Failed to connect to Google Drive');
         return false;
       }
 
@@ -82,9 +87,11 @@ class BackupService extends ChangeNotifier {
       _updateProgress(30, BackupStatus.preparing, 'Packaging local data...');
       final databaseBytes = await _snapshotService.packageAll();
 
-      // Step 4: Get or create master key
+      // Step 4: Get or create master key (consistent account)
       _updateProgress(40, BackupStatus.preparing, 'Preparing encryption...');
-      final masterKey = await _keyManager.getOrCreatePersistentMasterKey();
+      final masterKey = await _keyManager.getOrCreatePersistentMasterKeyV2(
+        preferredAccount: _driveAuthService.currentUser,
+      );
       if (masterKey == null) {
         _updateProgress(0, BackupStatus.failed, 'Failed to get encryption key');
         return false;
@@ -187,17 +194,20 @@ class BackupService extends ChangeNotifier {
         }
       }
 
-      // Step 2: Initialize Drive service
+      // Step 2: Initialize Drive service using unified auth
       _updateProgress(10, BackupStatus.preparing, 'Connecting to Google Drive...');
-      final driveInitialized = await _driveService.initialize();
+      final legacyHeaders = await _driveAuthService.getAuthHeaders(interactiveFallback: true);
+      final driveInitialized = legacyHeaders != null && await _driveService.initialize(authHeaders: legacyHeaders);
       if (!driveInitialized) {
         _updateProgress(0, BackupStatus.failed, 'Failed to connect to Google Drive');
         return false;
       }
 
-      // Step 3: Get or create master key
+      // Step 3: Get or create master key (consistent account)
       _updateProgress(20, BackupStatus.preparing, 'Preparing encryption...');
-      final masterKey = await _keyManager.getOrCreatePersistentMasterKey();
+      final masterKey = await _keyManager.getOrCreatePersistentMasterKeyV2(
+        preferredAccount: _driveAuthService.currentUser,
+      );
       if (masterKey == null) {
         _updateProgress(0, BackupStatus.failed, 'Failed to get encryption key');
         return false;
@@ -300,26 +310,45 @@ class BackupService extends ChangeNotifier {
         return RestoreResult.failure('No internet connection');
       }
 
-      // Step 2: Initialize Drive service
+      // Step 2: Initialize Drive service with same auth session
       _updateProgress(10, null, 'Connecting to Google Drive...', RestoreStatus.downloading);
-      final driveInitialized = await _driveService.initialize();
+      final restoreHeaders = await _driveAuthService.getAuthHeaders(interactiveFallback: true);
+      final driveInitialized = restoreHeaders != null && await _driveService.initialize(authHeaders: restoreHeaders);
       if (!driveInitialized) {
         _updateProgress(0, null, 'Failed to connect to Google Drive', RestoreStatus.failed);
         return RestoreResult.failure('Failed to connect to Google Drive');
       }
 
-      // Step 3: Find backup file
+      // Step 3: Find backup file (exclude key files)
       _updateProgress(20, null, 'Looking for backup...', RestoreStatus.downloading);
-      final backupFiles = await _driveService.listFiles(query: "name contains '$_backupPrefix'");
-      
+      final allFiles = await _driveService.listFiles(query: "name contains '$_backupPrefix'");
+
+      // Filter out the key file and only keep .crypt14 backup files
+      final backupFiles = allFiles.where((file) =>
+        file.name != null &&
+        file.name!.endsWith('.crypt14') &&
+        !file.name!.contains('keys')
+      ).toList();
+
       if (backupFiles.isEmpty) {
         _updateProgress(0, null, 'No backup found', RestoreStatus.failed);
         return RestoreResult.failure('No backup found for this Google account');
       }
 
-      // Step 4: Download backup
+      if (kDebugMode) {
+        print('[BackupService] Found ${backupFiles.length} backup files (excluded key files)');
+        for (final file in backupFiles) {
+          print('[BackupService]   - ${file.name} (${file.id})');
+        }
+      }
+
+      // Step 4: Download most recent backup (first in list, already sorted by modifiedTime desc)
       _updateProgress(40, null, 'Downloading backup...', RestoreStatus.downloading);
       final backupFile = backupFiles.first;
+
+      if (kDebugMode) {
+        print('[BackupService] Downloading backup: ${backupFile.name} (${backupFile.id})');
+      }
       final encryptedBytes = await _driveService.downloadFile(backupFile.id!);
       
       if (encryptedBytes == null) {
@@ -327,9 +356,11 @@ class BackupService extends ChangeNotifier {
         return RestoreResult.failure('Failed to download backup file');
       }
 
-      // Step 5: Get master key
+      // Step 5: Get master key (consistent account)
       _updateProgress(60, null, 'Preparing decryption...', RestoreStatus.decrypting);
-      final masterKey = await _keyManager.getOrCreatePersistentMasterKey();
+      final masterKey = await _keyManager.getOrCreatePersistentMasterKeyV2(
+        preferredAccount: _driveAuthService.currentUser,
+      );
       if (masterKey == null) {
         _updateProgress(0, null, 'Failed to get encryption key', RestoreStatus.failed);
         return RestoreResult.failure('Failed to get encryption key');
@@ -406,8 +437,15 @@ class BackupService extends ChangeNotifier {
         return null;
       }
 
-      final backupFiles = await _driveService.listFiles(query: "name contains '$_backupPrefix'");
-      
+      final allFiles = await _driveService.listFiles(query: "name contains '$_backupPrefix'");
+
+      // Filter out the key file and only keep .crypt14 backup files
+      final backupFiles = allFiles.where((file) =>
+        file.name != null &&
+        file.name!.endsWith('.crypt14') &&
+        !file.name!.contains('keys')
+      ).toList();
+
       if (backupFiles.isEmpty) {
         return null;
       }
@@ -846,7 +884,9 @@ class BackupService extends ChangeNotifier {
       final encryptedDataJson = String.fromCharCodes(downloadedBytes);
       final encryptedData = json.decode(encryptedDataJson);
 
-      final masterKey = await _keyManager.getOrCreatePersistentMasterKey();
+      final masterKey = await _keyManager.getOrCreatePersistentMasterKeyV2(
+        preferredAccount: _driveAuthService.currentUser,
+      );
       if (masterKey == null) {
         if (kDebugMode) {
           print('? Verification failed: Could not get master key');
@@ -904,4 +944,3 @@ class BackupVerificationReport {
     this.error,
   });
 }
-

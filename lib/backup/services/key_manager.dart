@@ -6,6 +6,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import '../models/key_file_format.dart';
 import 'google_drive_service.dart';
+import '../../services/google_sign_in_service.dart';
 
 /// Enhanced key manager for WhatsApp-style backup system
 class KeyManager extends ChangeNotifier {
@@ -14,13 +15,7 @@ class KeyManager extends ChangeNotifier {
   KeyManager._internal();
 
   final GoogleDriveService _driveService = GoogleDriveService();
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    scopes: [
-      'https://www.googleapis.com/auth/drive.appdata',
-      'email',
-      'profile',
-    ],
-  );
+  final GoogleSignInService _authService = GoogleSignInService();
 
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage(
     aOptions: AndroidOptions(
@@ -127,16 +122,107 @@ class KeyManager extends ChangeNotifier {
     }
   }
 
+  /// V2: Safer cross-device key retrieval that never overwrites an existing
+  /// cloud key if retrieval fails, and supports passing a preferred account
+  /// from DriveAuthService/GoogleDriveService for consistency.
+  Future<Uint8List?> getOrCreatePersistentMasterKeyV2({GoogleSignInAccount? preferredAccount}) async {
+    try {
+      if (kDebugMode) {
+        print('[KeyManager] (V2) Getting or creating persistent master key...');
+      }
+
+      // Step 1: Ensure we have an authenticated account
+      final account = preferredAccount ?? await _authService.ensureAuthenticated(interactiveFallback: true);
+      if (account == null || !_authService.validateAccount(account)) {
+        if (kDebugMode) {
+          print('[KeyManager] (V2) No valid Google account available');
+        }
+        return null;
+      }
+
+      final userEmail = account.email;
+      final googleId = account.id;
+
+      if (kDebugMode) {
+        print('[KeyManager] (V2) Using account: $userEmail (ID: $googleId)');
+      }
+
+      // Step 2: Try to retrieve existing key from cloud
+      final existingKey = await _retrieveKeyFromCloud(userEmail, googleId);
+      if (existingKey != null) {
+        if (kDebugMode) {
+          print('[KeyManager] (V2) Retrieved existing master key from cloud');
+        }
+        await _storeKeyLocally(existingKey);
+        return existingKey;
+      }
+
+      // Step 3: Guard against overwriting an existing cloud key
+      try {
+        final existsInCloud = await _driveService.fileExists(_keyFileName);
+        if (existsInCloud) {
+          if (kDebugMode) {
+            print('[KeyManager] (V2) Cloud key exists but retrieval failed; abort to avoid overwrite');
+          }
+          return null;
+        }
+      } catch (_) {
+        return null; // fail closed
+      }
+
+      // Step 4: Try local key and upload only if no cloud key exists
+      final localKey = await _getLocalKey();
+      if (localKey != null) {
+        if (kDebugMode) {
+          print('[KeyManager] (V2) Found local key; uploading to cloud');
+        }
+        final uploaded = await _uploadKeyToCloud(userEmail, googleId, localKey);
+        if (uploaded) {
+          return localKey;
+        }
+      }
+
+      // Step 5: Generate new master key (first time setup)
+      if (kDebugMode) {
+        print('[KeyManager] (V2) Generating new master key...');
+      }
+      final newKey = await _generateSecureMasterKey();
+
+      // Step 6: Upload to cloud and store locally
+      final uploaded = await _uploadKeyToCloud(userEmail, googleId, newKey);
+      if (!uploaded) {
+        if (kDebugMode) {
+          print('[KeyManager] (V2) Failed to upload key to cloud');
+        }
+        return null;
+      }
+      await _storeKeyLocally(newKey);
+
+      if (kDebugMode) {
+        print('[KeyManager] (V2) Created and stored new master key');
+      }
+      return newKey;
+    } catch (e) {
+      if (kDebugMode) {
+        print('[KeyManager] (V2) Error: $e');
+      }
+      return null;
+    }
+  }
+
+
   /// Check if persistent master key exists in cloud
   Future<bool> hasPersistentMasterKey() async {
     try {
-      final account = _googleSignIn.currentUser ?? await _googleSignIn.signInSilently();
-      if (account?.email == null) return false;
-      
+      final account = await _authService.ensureAuthenticated(interactiveFallback: false);
+      if (account == null || !_authService.validateAccount(account)) {
+        return false;
+      }
+
       return await _driveService.fileExists(_keyFileName);
     } catch (e) {
       if (kDebugMode) {
-        print('Error checking persistent master key: $e');
+        print('[KeyManager] Error checking persistent master key: $e');
       }
       return false;
     }
@@ -145,31 +231,19 @@ class KeyManager extends ChangeNotifier {
   /// Ensure we have a valid Google account with forced authentication
   Future<GoogleSignInAccount?> _ensureGoogleAccount() async {
     try {
-      // Try current user first
-      var account = _googleSignIn.currentUser;
-      
-      // Try silent sign-in
-      if (account == null) {
-        account = await _googleSignIn.signInSilently();
-      }
-      
-      // Force interactive sign-in if still null
-      if (account == null) {
-        account = await _googleSignIn.signIn();
-      }
-      
-      // Validate account has required information
-      if (account?.email == null || account?.id == null) {
+      final account = await _authService.ensureAuthenticated(interactiveFallback: true);
+
+      if (account == null || !_authService.validateAccount(account)) {
         if (kDebugMode) {
-          print('⚠️ Google account missing required information');
+          print('[KeyManager] ⚠️ No valid Google account available');
         }
         return null;
       }
-      
+
       return account;
     } catch (e) {
       if (kDebugMode) {
-        print('❌ Error ensuring Google account: $e');
+        print('[KeyManager] ❌ Error ensuring Google account: $e');
       }
       return null;
     }

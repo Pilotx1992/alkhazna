@@ -3,6 +3,8 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:googleapis_auth/auth_io.dart';
 import 'package:http/http.dart' as http;
+import 'headers_client.dart';
+import '../../services/google_sign_in_service.dart';
 
 /// Google Drive service for WhatsApp-style backup system
 /// Uses AppDataFolder for secure, hidden storage
@@ -11,14 +13,7 @@ class GoogleDriveService {
   factory GoogleDriveService() => _instance;
   GoogleDriveService._internal();
 
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    scopes: [
-      'https://www.googleapis.com/auth/drive.appdata',
-      'https://www.googleapis.com/auth/drive.file',
-      'email',
-      'profile',
-    ],
-  );
+  final GoogleSignInService _authService = GoogleSignInService();
 
   drive.DriveApi? _driveApi;
 
@@ -29,28 +24,33 @@ class GoogleDriveService {
         print('🔧 Initializing Google Drive service...');
       }
 
-      // Use provided auth headers or get from GoogleSignIn
+      // Use provided auth headers or get from unified auth service
       Map<String, String>? headers = authHeaders;
-      
+
       if (headers == null) {
-        // Get authenticated account
-        var account = _googleSignIn.currentUser;
-        if (account == null) {
-          account = await _googleSignIn.signInSilently();
-        }
-        if (account == null) {
-          account = await _googleSignIn.signIn();
-        }
+        // Get authenticated account via unified service
+        final account = await _authService.ensureAuthenticated(interactiveFallback: true);
 
         if (account == null) {
           if (kDebugMode) {
-            print('❌ No Google account available');
+            print('[GoogleDriveService] ❌ No Google account available');
           }
           return false;
         }
 
         // Get fresh authentication headers
         headers = await account.authHeaders;
+      } else {
+        // If external headers provided, initialize the Drive API directly
+        if (kDebugMode) {
+          print('dY"` Auth headers received (external): ${headers.keys.join(', ')}');
+        }
+        final client = HeadersClient(http.Client(), headers);
+        _driveApi = drive.DriveApi(client);
+        if (kDebugMode) {
+          print('�o. Google Drive service initialized with external headers');
+        }
+        return true;
       }
       
       if (kDebugMode) {
@@ -62,7 +62,7 @@ class GoogleDriveService {
       }
 
       // Use the GoogleSignInAuthentication approach instead
-      final authentication = await _googleSignIn.currentUser?.authentication;
+      final authentication = await _authService.currentUser?.authentication;
       final accessToken = authentication?.accessToken;
       
       if (accessToken == null) {
@@ -91,9 +91,9 @@ class GoogleDriveService {
       );
 
       _driveApi = drive.DriveApi(authenticatedClient);
-      
+
       if (kDebugMode) {
-        print('✅ Google Drive service initialized for: ${_googleSignIn.currentUser?.email}');
+        print('[GoogleDriveService] ✅ Google Drive service initialized for: ${_authService.currentUser?.email}');
       }
       
       return true;
@@ -318,15 +318,15 @@ class GoogleDriveService {
   /// Sign out and clear cached API
   Future<void> signOut() async {
     try {
-      await _googleSignIn.signOut();
+      await _authService.signOut();
       _driveApi = null;
 
       if (kDebugMode) {
-        print('👋 Signed out from Google Drive');
+        print('[GoogleDriveService] 👋 Signed out from Google Drive');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('💥 Error signing out: $e');
+        print('[GoogleDriveService] 💥 Error signing out: $e');
       }
     }
   }
@@ -334,10 +334,10 @@ class GoogleDriveService {
   /// Sign in to Google (interactive)
   Future<bool> signIn() async {
     try {
-      final account = await _googleSignIn.signIn();
+      final account = await _authService.signIn();
       if (account == null) {
         if (kDebugMode) {
-          print('❌ User cancelled sign-in');
+          print('[GoogleDriveService] ❌ User cancelled sign-in');
         }
         return false;
       }
@@ -346,17 +346,17 @@ class GoogleDriveService {
       return await initialize();
     } catch (e) {
       if (kDebugMode) {
-        print('💥 Error signing in: $e');
+        print('[GoogleDriveService] 💥 Error signing in: $e');
       }
       return false;
     }
   }
 
   /// Get current user info
-  GoogleSignInAccount? get currentUser => _googleSignIn.currentUser;
+  GoogleSignInAccount? get currentUser => _authService.currentUser;
 
   /// Check if user is signed in
-  bool get isSignedIn => _googleSignIn.currentUser != null;
+  bool get isSignedIn => _authService.isSignedIn;
   /// Delete a file by ID from AppDataFolder
   Future<void> deleteFileById(String fileId) async {
     try {
