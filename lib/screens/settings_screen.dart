@@ -49,10 +49,10 @@ class SettingsScreen extends StatelessWidget {
                 // Fixed Profile Section
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                  child: Column(
-                    children: [
+        child: Column(
+          children: [
                       Row(
-                        children: [
+                  children: [
                           IconButton(
                             icon: const Icon(Icons.arrow_back_ios_new, size: 20),
                             color: Colors.white,
@@ -138,18 +138,18 @@ class SettingsScreen extends StatelessWidget {
                           color: cs.primary,
                         )
                       : null,
-                ),
-              ),
-              const SizedBox(width: 16),
+                            ),
+                    ),
+                    const SizedBox(width: 16),
               // User Info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
-                      children: [
-                        Text(
-                          user?.username ?? 'User',
+                        children: [
+                          Text(
+                            user?.username ?? 'User',
                           style: TextStyle(
                             color: sectionTitleColor,
                             fontSize: 15.5,
@@ -169,19 +169,19 @@ class SettingsScreen extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      user?.email ?? 'No email',
+                          Text(
+                            user?.email ?? 'No email',
                       style: TextStyle(
                         color: sectionTitleColor.withValues(alpha: 0.65),
                         fontSize: 13,
                       ),
                     ),
                   ],
-                ),
-              ),
-            ],
-          ),
-        ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
       ),
     );
   }
@@ -212,10 +212,10 @@ class SettingsScreen extends StatelessWidget {
                   ),
                 ),
                 trailing,
-              ],
-            ),
-          ),
-        ],
+                        ],
+                      ),
+                    ),
+                  ],
       );
     }
 
@@ -226,44 +226,44 @@ class SettingsScreen extends StatelessWidget {
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 18, offset: const Offset(0, 10))],
       ),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-      child: Column(
+              child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+                children: [
           Text('Security & Privacy', style: TextStyle(color: sectionTitleColor, fontSize: 16, fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),
           row(
             icon: Icons.lock,
             title: 'App Lock (PIN)',
             trailing: Switch.adaptive(
-              value: securityService.isPinEnabled,
-              onChanged: (value) async {
-                if (value) {
+                      value: securityService.isPinEnabled,
+                      onChanged: (value) async {
+                        if (value) {
                   // Enable PIN
-                  final result = await Navigator.push(
-                    context,
+                          final result = await Navigator.push(
+                            context,
                     MaterialPageRoute(builder: (context) => const SetupPinScreen()),
-                  );
-                  if (result == true && context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                          );
+                          if (result == true && context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('PIN protection enabled!'), backgroundColor: Colors.green),
-                    );
-                  }
-                } else {
+                            );
+                          }
+                        } else {
                   // Disable PIN
-                  final verified = await Navigator.push<bool>(
-                    context,
+                          final verified = await Navigator.push<bool>(
+                            context,
                     MaterialPageRoute(builder: (context) => const VerifyPinScreen(title: 'Verify PIN to Disable')),
-                  );
-                  if (verified == true && context.mounted) {
-                    await securityService.deletePin();
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                          );
+                          if (verified == true && context.mounted) {
+                            await securityService.deletePin();
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('PIN protection disabled'), backgroundColor: Colors.orange),
-                      );
-                    }
-                  }
-                }
-              },
+                              );
+                            }
+                          }
+                        }
+                      },
               activeThumbColor: cs.primary,
             ),
           ),
@@ -273,27 +273,27 @@ class SettingsScreen extends StatelessWidget {
               title: 'Biometric Unlock',
               topDivider: true,
               trailing: Switch.adaptive(
-                value: securityService.isBiometricEnabled,
+                      value: securityService.isBiometricEnabled,
                 onChanged: (value) async {
-                  try {
-                    if (value) {
-                      await securityService.enableBiometric();
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
+                              try {
+                                if (value) {
+                                  await securityService.enableBiometric();
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Biometric unlock enabled!'), backgroundColor: Colors.green),
-                        );
-                      }
-                    } else {
-                      await securityService.disableBiometric();
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
+                                    );
+                                  }
+                                } else {
+                                  await securityService.disableBiometric();
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Biometric unlock disabled'), backgroundColor: Colors.orange),
-                        );
-                      }
-                    }
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                                    );
+                                  }
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
                       );
                     }
@@ -307,9 +307,9 @@ class SettingsScreen extends StatelessWidget {
               title: 'Change PIN',
               topDivider: true,
               trailing: GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
+                      onTap: () {
+                        Navigator.push(
+                          context,
                     MaterialPageRoute(builder: (context) => const ChangePinScreen()),
                   );
                 },
@@ -324,15 +324,17 @@ class SettingsScreen extends StatelessWidget {
                   ],
                 ),
               ),
-            ),
-          ],
-        ],
-      ),
+                    ),
+                  ],
+                ],
+              ),
     );
   }
 
   // ---------------- Backup Section ----------------
   Widget _buildBackupSection(Color surfaceCard, Color sectionTitleColor, user, context) {
+    final isConnected = user?.hasLinkedGoogleAccount == true;
+    
     return Container(
       decoration: BoxDecoration(
         color: surfaceCard,
@@ -345,33 +347,141 @@ class SettingsScreen extends StatelessWidget {
         children: [
           Text('Backup & Storage', style: TextStyle(color: sectionTitleColor, fontSize: 16, fontWeight: FontWeight.w700)),
           const SizedBox(height: 14),
-          OutlinedButton.icon(
-            onPressed: () {
-              Navigator.push(
-                context,
+          
+          // Enhanced Backup Button with gradient
+          GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
                 MaterialPageRoute(builder: (context) => const BackupScreen()),
               );
             },
-            icon: const Icon(Icons.backup, color: Color(0xFF2196F3)),
-            label: Text(
-              user?.hasLinkedGoogleAccount == true
-                  ? 'Connected to ${user!.backupGoogleAccountEmail}'
-                  : 'Not connected',
-              style: TextStyle(
-                color: user?.hasLinkedGoogleAccount == true ? const Color(0xFF10B981) : const Color(0xFF2196F3),
-                fontWeight: FontWeight.w700,
-                fontSize: 15,
+            child: Container(
+              height: 60,
+              decoration: BoxDecoration(
+                gradient: isConnected
+                    ? const LinearGradient(
+                        colors: [Color(0xFF10B981), Color(0xFF059669)],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      )
+                    : const LinearGradient(
+                        colors: [Color(0xFF40BEFF), Color(0xFF12C9B6)],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(
+                    color: (isConnected ? const Color(0xFF10B981) : const Color(0xFF12C9B6)).withValues(alpha: 0.4),
+                    blurRadius: 20,
+                    spreadRadius: 1,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
               ),
-            ),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(50),
-              side: BorderSide(
-                color: user?.hasLinkedGoogleAccount == true ? const Color(0xFF10B981) : const Color(0xFF2196F3),
-                width: 1.3,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Status Icon
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isConnected ? Icons.cloud_done : Icons.cloud_upload,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  
+                  // Text Content
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isConnected ? 'Backup & Restore' : 'Connect Backup',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          isConnected
+                              ? 'Connected to ${user!.backupGoogleAccountEmail.split('@').first}'
+                              : 'Enable cloud backup now',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.85),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  // Arrow Icon
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.arrow_forward_ios,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                ],
               ),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(45)),
             ),
           ),
+          
+          // Additional Info
+          if (isConnected) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.verified,
+                    color: const Color(0xFF10B981),
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Your data is backed up and encrypted',
+                      style: TextStyle(
+                        color: sectionTitleColor.withValues(alpha: 0.8),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -393,7 +503,7 @@ class SettingsScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 14),
             child: Row(
-              children: [
+                children: [
                 Icon(icon, color: sectionTitleColor.withValues(alpha: 0.8)),
                 const SizedBox(width: 12),
                 Expanded(
@@ -426,18 +536,18 @@ class SettingsScreen extends StatelessWidget {
             icon: themeService.isDarkMode ? Icons.dark_mode : Icons.light_mode,
             title: 'Theme',
             trailing: Switch.adaptive(
-              value: themeService.isDarkMode,
-              onChanged: (value) async {
-                await themeService.toggleTheme();
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
+                      value: themeService.isDarkMode,
+                      onChanged: (value) async {
+                        await themeService.toggleTheme();
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
                       content: Text('Switched to ${value ? "dark" : "light"} mode'),
-                      duration: const Duration(seconds: 1),
-                    ),
-                  );
-                }
-              },
+                              duration: const Duration(seconds: 1),
+                            ),
+                          );
+                        }
+                      },
               activeThumbColor: cs.primary,
             ),
           ),
@@ -446,18 +556,18 @@ class SettingsScreen extends StatelessWidget {
             title: 'Language',
             topDivider: true,
             trailing: Switch.adaptive(
-              value: languageService.isArabic,
-              onChanged: (value) async {
-                await languageService.toggleLanguage();
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
+                      value: languageService.isArabic,
+                      onChanged: (value) async {
+                        await languageService.toggleLanguage();
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
                       content: Text('Switched to ${value ? "Arabic" : "English"}'),
-                      duration: const Duration(seconds: 1),
-                    ),
-                  );
-                }
-              },
+                              duration: const Duration(seconds: 1),
+                            ),
+                          );
+                        }
+                      },
               activeThumbColor: cs.primary,
             ),
           ),
@@ -466,12 +576,12 @@ class SettingsScreen extends StatelessWidget {
             title: 'Notifications',
             topDivider: true,
             trailing: GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
+                    onTap: () {
+                      Navigator.push(
+                        context,
                   MaterialPageRoute(builder: (context) => const NotificationSettingsScreen()),
-                );
-              },
+                      );
+                    },
               child: Row(
                 children: [
                   Text(
@@ -530,63 +640,63 @@ class SettingsScreen extends StatelessWidget {
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 18, offset: const Offset(0, 10))],
       ),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-      child: Column(
+              child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+                children: [
           Text('Account', style: TextStyle(color: sectionTitleColor, fontSize: 16, fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),
           row(
             icon: Icons.info,
             title: 'About',
             iconColor: cs.primary,
-            onTap: () {
-              showAboutDialog(
-                context: context,
-                applicationName: 'Al Khazna',
-                applicationVersion: '1.0.0',
+                    onTap: () {
+                      showAboutDialog(
+                        context: context,
+                        applicationName: 'Al Khazna',
+                        applicationVersion: '1.0.0',
                 applicationIcon: Icon(Icons.account_balance_wallet_outlined, size: 48, color: cs.primary),
-                children: [
+                        children: [
                   const Text('A simple and elegant app for tracking your monthly income and expenses.'),
-                ],
-              );
-            },
-          ),
+                        ],
+                      );
+                    },
+                  ),
           row(
             icon: Icons.logout,
             title: 'Sign Out',
             iconColor: Colors.red,
             topDivider: true,
-            onTap: () {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Sign Out'),
-                  content: const Text('Are you sure you want to sign out?'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Cancel'),
-                    ),
-                    ElevatedButton(
-                      onPressed: () async {
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Sign Out'),
+                          content: const Text('Are you sure you want to sign out?'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Cancel'),
+                            ),
+                            ElevatedButton(
+                              onPressed: () async {
                         Navigator.pop(context);
-                        await authService.signOut();
-                        if (context.mounted) {
-                          Navigator.of(context).pushAndRemoveUntil(
+                                await authService.signOut();
+                                if (context.mounted) {
+                                  Navigator.of(context).pushAndRemoveUntil(
                             MaterialPageRoute(builder: (context) => const LoginScreen()),
-                            (route) => false,
-                          );
-                        }
-                      },
+                                    (route) => false,
+                                  );
+                                }
+                              },
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-                      child: const Text('Sign Out'),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ],
+                              child: const Text('Sign Out'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ],
       ),
     );
   }
