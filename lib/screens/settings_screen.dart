@@ -75,7 +75,7 @@ class SettingsScreen extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      _buildProfileCard(surfaceCard, sectionTitleColor, user, context),
+                      _buildProfileCard(surfaceCard, sectionTitleColor, user, context, authService),
                     ],
                   ),
                 ),
@@ -91,8 +91,6 @@ class SettingsScreen extends StatelessWidget {
                       _buildBackupSection(surfaceCard, sectionTitleColor, user, context),
                       const SizedBox(height: 16),
                       _buildAppSettingsSection(surfaceCard, sectionTitleColor, themeService, languageService, context),
-                      const SizedBox(height: 16),
-                      _buildAccountSection(surfaceCard, sectionTitleColor, authService, context),
                       const SizedBox(height: 32),
                     ],
                   ),
@@ -106,7 +104,7 @@ class SettingsScreen extends StatelessWidget {
   }
 
   // ---------------- Profile Card ----------------
-  Widget _buildProfileCard(Color surfaceCard, Color sectionTitleColor, user, BuildContext context) {
+  Widget _buildProfileCard(Color surfaceCard, Color sectionTitleColor, user, BuildContext context, authService) {
     final cs = Theme.of(context).colorScheme;
     
     return Container(
@@ -122,60 +120,117 @@ class SettingsScreen extends StatelessWidget {
         ],
       ),
       padding: const EdgeInsets.all(16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
         children: [
-          // Profile Avatar
-          Center(
-            child: CircleAvatar(
-              radius: 22,
-              backgroundImage: user?.profileImageUrl != null ? NetworkImage(user!.profileImageUrl!) : null,
-              backgroundColor: cs.primary.withValues(alpha: 0.12),
-              child: user?.profileImageUrl == null
-                  ? Icon(
-                      user?.username.isNotEmpty == true ? Icons.person : Icons.account_circle,
-                      color: cs.primary,
-                    )
-                  : null,
-            ),
-          ),
-          const SizedBox(width: 16),
-          // User Info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Profile Avatar
+              Center(
+                child: CircleAvatar(
+                  radius: 22,
+                  backgroundImage: user?.profileImageUrl != null ? NetworkImage(user!.profileImageUrl!) : null,
+                  backgroundColor: cs.primary.withValues(alpha: 0.12),
+                  child: user?.profileImageUrl == null
+                      ? Icon(
+                          user?.username.isNotEmpty == true ? Icons.person : Icons.account_circle,
+                          color: cs.primary,
+                        )
+                      : null,
+                ),
+              ),
+              const SizedBox(width: 16),
+              // User Info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Row(
+                      children: [
+                        Text(
+                          user?.username ?? 'User',
+                          style: TextStyle(
+                            color: sectionTitleColor,
+                            fontSize: 15.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        if (user?.hasLinkedGoogleAccount == true)
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF10B981),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
                     Text(
-                      user?.username ?? 'User',
+                      user?.email ?? 'No email',
                       style: TextStyle(
-                        color: sectionTitleColor,
-                        fontSize: 15.5,
-                        fontWeight: FontWeight.w700,
+                        color: sectionTitleColor.withValues(alpha: 0.65),
+                        fontSize: 13,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    if (user?.hasLinkedGoogleAccount == true)
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF10B981),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
                   ],
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  user?.email ?? 'No email',
-                  style: TextStyle(
-                    color: sectionTitleColor.withValues(alpha: 0.65),
-                    fontSize: 13,
-                  ),
+              ),
+            ],
+          ),
+          
+          // Sign Out Button
+          const SizedBox(height: 16),
+          Divider(height: 1, color: sectionTitleColor.withValues(alpha: 0.12)),
+          const SizedBox(height: 12),
+          InkWell(
+            onTap: () {
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Sign Out'),
+                  content: const Text('Are you sure you want to sign out?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () async {
+                        Navigator.pop(context);
+                        await authService.signOut();
+                        if (context.mounted) {
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute(builder: (context) => const LoginScreen()),
+                            (route) => false,
+                          );
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                      child: const Text('Sign Out'),
+                    ),
+                  ],
                 ),
-              ],
+              );
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
+              child: Row(
+                children: [
+                  Icon(Icons.logout, color: Colors.red.withValues(alpha: 0.8)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Sign Out',
+                      style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  Icon(Icons.chevron_right, color: sectionTitleColor),
+                ],
+              ),
             ),
           ),
         ],
@@ -571,109 +626,4 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  // ---------------- Account Section ----------------
-  Widget _buildAccountSection(Color surfaceCard, Color sectionTitleColor, authService, context) {
-    final cs = Theme.of(context).colorScheme;
-
-    Widget row({
-      required IconData icon,
-      required String title,
-      required VoidCallback onTap,
-      Color? iconColor,
-      bool topDivider = false,
-    }) {
-      return Column(
-        children: [
-          if (topDivider) Divider(height: 1, color: sectionTitleColor.withValues(alpha: 0.12)),
-          InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
-              child: Row(
-                children: [
-                  Icon(icon, color: iconColor ?? sectionTitleColor.withValues(alpha: 0.8)),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: TextStyle(color: sectionTitleColor, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                  Icon(Icons.chevron_right, color: sectionTitleColor),
-                ],
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-
-    return Container(
-      decoration: BoxDecoration(
-        color: surfaceCard,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 18, offset: const Offset(0, 10))],
-      ),
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-              child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-          Text('Account', style: TextStyle(color: sectionTitleColor, fontSize: 16, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 6),
-          row(
-            icon: Icons.info,
-            title: 'About',
-            iconColor: cs.primary,
-                    onTap: () {
-                      showAboutDialog(
-                        context: context,
-                        applicationName: 'Al Khazna',
-                        applicationVersion: '1.0.0',
-                applicationIcon: Icon(Icons.account_balance_wallet_outlined, size: 48, color: cs.primary),
-                        children: [
-                  const Text('A simple and elegant app for tracking your monthly income and expenses.'),
-                        ],
-                      );
-                    },
-                  ),
-          row(
-            icon: Icons.logout,
-            title: 'Sign Out',
-            iconColor: Colors.red,
-            topDivider: true,
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Sign Out'),
-                          content: const Text('Are you sure you want to sign out?'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('Cancel'),
-                            ),
-                            ElevatedButton(
-                              onPressed: () async {
-                        Navigator.pop(context);
-                                await authService.signOut();
-                                if (context.mounted) {
-                                  Navigator.of(context).pushAndRemoveUntil(
-                            MaterialPageRoute(builder: (context) => const LoginScreen()),
-                                    (route) => false,
-                                  );
-                                }
-                              },
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-                              child: const Text('Sign Out'),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ],
-      ),
-    );
-  }
 }
