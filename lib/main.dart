@@ -15,6 +15,9 @@ import 'models/security_settings.dart';
 import 'services/auth_service.dart';
 import 'services/security_service.dart';
 import 'services/connectivity_service.dart';
+import 'services/theme_service.dart';
+import 'services/language_service.dart';
+import 'services/notification_settings_service.dart';
 import 'backup/utils/backup_scheduler.dart';
 import 'backup/utils/notification_helper.dart';
 import 'backup/services/backup_service.dart';
@@ -138,6 +141,121 @@ class AppTheme {
       ),
     );
   }
+
+  static ThemeData get darkTheme {
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: Colors.indigo,
+        brightness: Brightness.dark,
+      ),
+      scaffoldBackgroundColor: const Color(0xFF121212),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Color(0xFF1E1E1E),
+        foregroundColor: Colors.indigoAccent,
+        elevation: 2,
+        centerTitle: true,
+        titleTextStyle: TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 24,
+          color: Colors.indigoAccent,
+          fontFamily: 'Cairo',
+        ),
+        iconTheme: IconThemeData(color: Colors.indigoAccent, size: 28),
+      ),
+      textTheme: const TextTheme(
+        bodyLarge:
+            TextStyle(color: Colors.white70, fontSize: 18, fontFamily: 'Cairo'),
+        bodyMedium:
+            TextStyle(color: Colors.white70, fontSize: 16, fontFamily: 'Cairo'),
+        titleLarge: TextStyle(
+            color: Colors.indigoAccent,
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Cairo'),
+        headlineMedium: TextStyle(
+            color: Colors.indigoAccent,
+            fontSize: 32,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Cairo'),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Colors.indigoAccent, width: 1),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Colors.indigoAccent, width: 2),
+        ),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        isDense: true,
+        fillColor: const Color(0xFF1E1E1E),
+        filled: true,
+      ),
+      cardTheme: CardThemeData(
+        color: const Color(0xFF1E1E1E),
+        elevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(30),
+        ),
+        margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 0),
+        shadowColor: Colors.black.withAlpha((0.3 * 255).round()),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.indigoAccent,
+          foregroundColor: Colors.black,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30),
+          ),
+          textStyle: const TextStyle(
+              fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'Cairo'),
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+          elevation: 4,
+        ),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: ButtonStyle(
+          backgroundColor: WidgetStateProperty.all(Colors.indigoAccent.withAlpha((0.2 * 255).round())),
+          iconColor: WidgetStateProperty.all(Colors.indigoAccent),
+          shape: WidgetStateProperty.all(RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30),
+          )),
+        ),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: Colors.indigoAccent,
+        foregroundColor: Colors.black,
+        elevation: 4,
+        shape: StadiumBorder(),
+      ),
+      snackBarTheme: const SnackBarThemeData(
+        backgroundColor: Colors.indigoAccent,
+        contentTextStyle:
+            TextStyle(color: Colors.black, fontSize: 16, fontFamily: 'Cairo'),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(30))),
+      ),
+      tabBarTheme: const TabBarThemeData(
+        labelColor: Colors.indigoAccent,
+        unselectedLabelColor: Colors.white54,
+        indicatorColor: Colors.indigoAccent,
+        labelStyle: TextStyle(
+            fontWeight: FontWeight.bold, fontSize: 18, fontFamily: 'Cairo'),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: Colors.indigoAccent,
+        thickness: 1,
+        space: 24,
+      ),
+    );
+  }
 }
 
 /// Migrate old income entries to add createdAt field
@@ -239,6 +357,9 @@ class AlKhaznaApp extends StatefulWidget {
 
 class _AlKhaznaAppState extends State<AlKhaznaApp> with WidgetsBindingObserver {
   late SecurityService _securityService;
+  late ThemeService _themeService;
+  late LanguageService _languageService;
+  late NotificationSettingsService _notificationSettingsService;
 
   @override
   void initState() {
@@ -246,6 +367,12 @@ class _AlKhaznaAppState extends State<AlKhaznaApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _securityService = SecurityService();
     _securityService.initialize();
+    _themeService = ThemeService();
+    _themeService.initialize();
+    _languageService = LanguageService();
+    _languageService.initialize();
+    _notificationSettingsService = NotificationSettingsService();
+    _notificationSettingsService.initialize();
   }
 
   @override
@@ -272,21 +399,30 @@ class _AlKhaznaAppState extends State<AlKhaznaApp> with WidgetsBindingObserver {
         ChangeNotifierProvider(create: (context) => AuthService()..initialize()),
         ChangeNotifierProvider(create: (context) => BackupService()),
         ChangeNotifierProvider.value(value: _securityService), // Security service
+        ChangeNotifierProvider.value(value: _themeService), // Theme service
+        ChangeNotifierProvider.value(value: _languageService), // Language service
+        ChangeNotifierProvider.value(value: _notificationSettingsService), // Notification settings
       ],
-      child: MaterialApp(
-        title: 'Al Khazna',
-        theme: AppTheme.lightTheme,
-        home: const SecurityWrapper(), // Wrap with SecurityWrapper
-        locale: const Locale('en', ''),
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        supportedLocales: const [
-          Locale('ar', ''),
-          Locale('en', ''),
-        ],
+      child: Consumer2<ThemeService, LanguageService>(
+        builder: (context, themeService, languageService, child) {
+          return MaterialApp(
+            title: 'Al Khazna',
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: themeService.themeMode,
+            home: const SecurityWrapper(), // Wrap with SecurityWrapper
+            locale: languageService.locale,
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: const [
+              Locale('ar', ''),
+              Locale('en', ''),
+            ],
+          );
+        },
       ),
     );
   }

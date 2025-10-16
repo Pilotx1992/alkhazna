@@ -237,48 +237,56 @@ class PinInputWidgetState extends State<PinInputWidget>
 
   Widget _buildKeypad() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         children: [
           // Row 1: 1 2 3
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _buildKey('1'),
+              const SizedBox(width: 16),
               _buildKey('2'),
+              const SizedBox(width: 16),
               _buildKey('3'),
             ],
           ),
           const SizedBox(height: 16),
           // Row 2: 4 5 6
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _buildKey('4'),
+              const SizedBox(width: 16),
               _buildKey('5'),
+              const SizedBox(width: 16),
               _buildKey('6'),
             ],
           ),
           const SizedBox(height: 16),
           // Row 3: 7 8 9
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _buildKey('7'),
+              const SizedBox(width: 16),
               _buildKey('8'),
+              const SizedBox(width: 16),
               _buildKey('9'),
             ],
           ),
           const SizedBox(height: 16),
           // Row 4: [biometric/empty] 0 [delete]
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // Show biometric button or empty space
               widget.showBiometricButton
                   ? _buildBiometricKeypadButton()
                   : const SizedBox(width: 70, height: 70),
+              const SizedBox(width: 16),
               _buildKey('0'),
+              const SizedBox(width: 16),
               _buildDeleteKey(),
             ],
           ),
@@ -291,7 +299,7 @@ class PinInputWidgetState extends State<PinInputWidget>
     final isDisabled = widget.isLoading;
 
     return Material(
-      color: isDisabled ? Colors.grey[300] : Colors.white,
+      color: isDisabled ? Colors.grey[300] : Colors.grey[300],
       elevation: isDisabled ? 0 : 2,
       shape: const CircleBorder(),
       child: InkWell(
@@ -306,7 +314,7 @@ class PinInputWidgetState extends State<PinInputWidget>
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w500,
-              color: isDisabled ? Colors.grey[500] : Colors.indigo,
+              color: isDisabled ? Colors.grey[500] : Colors.black,
             ),
           ),
         ),

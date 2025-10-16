@@ -3,10 +3,13 @@ import 'package:provider/provider.dart';
 
 import '../services/auth_service.dart';
 import '../services/security_service.dart';
+import '../services/theme_service.dart';
+import '../services/language_service.dart';
 import '../backup/ui/backup_screen.dart';
 import 'security/setup_pin_screen.dart';
 import 'security/change_pin_screen.dart';
 import 'security/verify_pin_screen.dart';
+import 'notification_settings_screen.dart';
 import 'login_screen.dart';
 
 /// Comprehensive settings and user profile screen
@@ -17,6 +20,8 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
     final securityService = Provider.of<SecurityService>(context);
+    final themeService = Provider.of<ThemeService>(context);
+    final languageService = Provider.of<LanguageService>(context);
     final user = authService.authState.currentUser;
     final theme = Theme.of(context);
 
@@ -281,54 +286,31 @@ class SettingsScreen extends StatelessWidget {
             const SizedBox(height: 8),
 
             Card(
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: Colors.blue.shade50,
-                      child: Icon(Icons.cloud_outlined, color: Colors.blue),
-                    ),
-                    title: const Text('Google Drive Backup'),
-                    subtitle: Text(
-                      user?.hasLinkedGoogleAccount == true
-                          ? 'Connected to ${user!.backupGoogleAccountEmail}'
-                          : 'Not connected',
-                      style: TextStyle(
-                        color: user?.hasLinkedGoogleAccount == true
-                            ? Colors.green
-                            : Colors.grey[600],
-                      ),
-                    ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const BackupScreen(),
-                        ),
-                      );
-                    },
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: Colors.blue.shade50,
+                  child: Icon(Icons.backup, color: Colors.blue),
+                ),
+                title: const Text('Backup & Restore'),
+                subtitle: Text(
+                  user?.hasLinkedGoogleAccount == true
+                      ? 'Connected to ${user!.backupGoogleAccountEmail}'
+                      : 'Not connected',
+                  style: TextStyle(
+                    color: user?.hasLinkedGoogleAccount == true
+                        ? Colors.green
+                        : Colors.grey[600],
                   ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: Colors.purple.shade50,
-                      child: Icon(Icons.storage, color: Colors.purple),
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const BackupScreen(),
                     ),
-                    title: const Text('Local Storage'),
-                    subtitle: const Text('Manage local app data'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      // TODO: Implement local storage management
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Local storage management coming soon!'),
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                    },
-                  ),
-                ],
+                  );
+                },
               ),
             ),
 
@@ -350,20 +332,29 @@ class SettingsScreen extends StatelessWidget {
                   ListTile(
                     leading: CircleAvatar(
                       backgroundColor: Colors.green.shade50,
-                      child: Icon(Icons.palette, color: Colors.green),
+                      child: Icon(
+                        themeService.isDarkMode ? Icons.dark_mode : Icons.light_mode,
+                        color: Colors.green,
+                      ),
                     ),
                     title: const Text('Theme'),
-                    subtitle: const Text('Light theme'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      // TODO: Implement theme settings
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Theme settings coming soon!'),
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                    },
+                    subtitle: Text(themeService.isDarkMode ? 'Dark mode' : 'Light mode'),
+                    trailing: Switch(
+                      value: themeService.isDarkMode,
+                      onChanged: (value) async {
+                        await themeService.toggleTheme();
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Switched to ${value ? "dark" : "light"} mode',
+                              ),
+                              duration: const Duration(seconds: 1),
+                            ),
+                          );
+                        }
+                      },
+                    ),
                   ),
                   const Divider(height: 1),
                   ListTile(
@@ -372,17 +363,23 @@ class SettingsScreen extends StatelessWidget {
                       child: Icon(Icons.language, color: Colors.teal),
                     ),
                     title: const Text('Language'),
-                    subtitle: const Text('English'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      // TODO: Implement language settings
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Language settings coming soon!'),
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                    },
+                    subtitle: Text(languageService.isArabic ? 'العربية' : 'English'),
+                    trailing: Switch(
+                      value: languageService.isArabic,
+                      onChanged: (value) async {
+                        await languageService.toggleLanguage();
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Switched to ${value ? "Arabic" : "English"}',
+                              ),
+                              duration: const Duration(seconds: 1),
+                            ),
+                          );
+                        }
+                      },
+                    ),
                   ),
                   const Divider(height: 1),
                   ListTile(
@@ -394,11 +391,10 @@ class SettingsScreen extends StatelessWidget {
                     subtitle: const Text('Manage app notifications'),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () {
-                      // TODO: Implement notification settings
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Notification settings coming soon!'),
-                          duration: Duration(seconds: 2),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const NotificationSettingsScreen(),
                         ),
                       );
                     },

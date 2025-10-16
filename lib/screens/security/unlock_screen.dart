@@ -257,7 +257,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
                   onPinComplete: _onPinComplete,
                   errorMessage: _errorMessage,
                   isLoading: _isLoading || isLockedOut,
-                  showBiometricButton: securityService.isBiometricEnabled && !isLockedOut,
+                  showBiometricButton: true, // Always show for UI consistency
                   onBiometricTap: _onBiometricTap,
                 ),
               ],
