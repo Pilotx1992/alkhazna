@@ -24,477 +24,569 @@ class SettingsScreen extends StatelessWidget {
     final languageService = Provider.of<LanguageService>(context);
     final user = authService.authState.currentUser;
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
+    const headerGrad = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [Color(0xFF0D2A45), Color(0xFF133A5A)],
+    );
+
+    final surfaceCard = isDark ? const Color(0xFF1C2B39) : Colors.white;
+    final sectionTitleColor = isDark ? Colors.white.withValues(alpha: 0.92) : cs.onSurface;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Settings'),
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        foregroundColor: Colors.indigo,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Profile Section
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 30,
-                      backgroundColor: Colors.indigo.shade100,
-                      child: user?.profileImageUrl != null
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(30),
-                              child: Image.network(
-                                user!.profileImageUrl!,
-                                width: 60,
-                                height: 60,
-                                fit: BoxFit.cover,
-                              ),
-                            )
-                          : Text(
-                              user?.username.isNotEmpty == true
-                                  ? user!.username[0].toUpperCase()
-                                  : 'U',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.indigo,
-                              ),
-                            ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+      backgroundColor: isDark ? const Color(0xFF0E1C28) : cs.surface,
+      body: Stack(
+        children: [
+          // Header gradient background
+          Container(height: 220, decoration: const BoxDecoration(gradient: headerGrad)),
+
+          SafeArea(
+            child: Column(
+              children: [
+                // Fixed Profile Section
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  child: Column(
+                    children: [
+                      Row(
                         children: [
-                          Text(
-                            user?.username ?? 'User',
-                            style: theme.textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
+                          IconButton(
+                            icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+                            color: Colors.white,
+                            onPressed: () => Navigator.of(context).pop(),
+                          ),
+                          const SizedBox(width: 8),
+                          const Expanded(
+                            child: Text(
+                              'Settings',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            user?.email ?? 'No email',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                          if (user?.hasLinkedGoogleAccount == true) ...[
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.cloud_done,
-                                  size: 16,
-                                  color: Colors.green,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Backup enabled',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: Colors.green,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                          const SizedBox(width: 48), // Placeholder for symmetry
                         ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 12),
+                      _buildProfileCard(surfaceCard, sectionTitleColor, user, context),
+                    ],
+                  ),
+                ),
+                
+                // Scrollable Content
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    children: [
+                      const SizedBox(height: 16),
+                      _buildSecuritySection(surfaceCard, sectionTitleColor, securityService, context),
+                      const SizedBox(height: 16),
+                      _buildBackupSection(surfaceCard, sectionTitleColor, user, context),
+                      const SizedBox(height: 16),
+                      _buildAppSettingsSection(surfaceCard, sectionTitleColor, themeService, languageService, context),
+                      const SizedBox(height: 16),
+                      _buildAccountSection(surfaceCard, sectionTitleColor, authService, context),
+                      const SizedBox(height: 32),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------- Profile Card ----------------
+  Widget _buildProfileCard(Color surfaceCard, Color sectionTitleColor, user, BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    
+    return Container(
+      decoration: BoxDecoration(
+        color: surfaceCard,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Profile Avatar
+              Center(
+                child: CircleAvatar(
+                  radius: 22,
+                  backgroundImage: user?.profileImageUrl != null ? NetworkImage(user!.profileImageUrl!) : null,
+                  backgroundColor: cs.primary.withValues(alpha: 0.12),
+                  child: user?.profileImageUrl == null
+                      ? Icon(
+                          user?.username.isNotEmpty == true ? Icons.person : Icons.account_circle,
+                          color: cs.primary,
+                        )
+                      : null,
                 ),
               ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Security Section
-            Text(
-              'Security & Privacy',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[700],
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            Card(
-              child: Column(
-                children: [
-                  // App Lock (PIN)
-                  ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: Colors.indigo.shade50,
-                      child: Icon(Icons.lock, color: Colors.indigo),
-                    ),
-                    title: const Text('App Lock (PIN)'),
-                    subtitle: Text(
-                      securityService.isPinEnabled ? 'Enabled' : 'Disabled',
-                      style: TextStyle(
-                        color: securityService.isPinEnabled
-                            ? Colors.green
-                            : Colors.grey[600],
-                      ),
-                    ),
-                    trailing: Switch(
-                      value: securityService.isPinEnabled,
-                      onChanged: (value) async {
-                        if (value) {
-                          // Enable PIN - navigate to setup
-                          final result = await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const SetupPinScreen(),
-                            ),
-                          );
-                          if (result == true && context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('PIN protection enabled!'),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                          }
-                        } else {
-                          // Disable PIN - verify first
-                          final verified = await Navigator.push<bool>(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const VerifyPinScreen(
-                                title: 'Verify PIN to Disable',
-                              ),
-                            ),
-                          );
-                          if (verified == true && context.mounted) {
-                            await securityService.deletePin();
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('PIN protection disabled'),
-                                  backgroundColor: Colors.orange,
-                                ),
-                              );
-                            }
-                          }
-                        }
-                      },
-                    ),
-                  ),
-                  const Divider(height: 1),
-
-                  // Biometric Unlock
-                  ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: Colors.teal.shade50,
-                      child: Icon(Icons.fingerprint, color: Colors.teal),
-                    ),
-                    title: const Text('Biometric Unlock'),
-                    subtitle: Text(
-                      !securityService.isPinEnabled
-                          ? 'Requires PIN to be enabled first'
-                          : securityService.isBiometricEnabled
-                              ? 'Enabled'
-                              : 'Disabled',
-                      style: TextStyle(
-                        color: securityService.isBiometricEnabled
-                            ? Colors.green
-                            : Colors.grey[600],
-                      ),
-                    ),
-                    trailing: Switch(
-                      value: securityService.isBiometricEnabled,
-                      onChanged: securityService.isPinEnabled
-                          ? (value) async {
-                              try {
-                                if (value) {
-                                  await securityService.enableBiometric();
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Biometric unlock enabled!'),
-                                        backgroundColor: Colors.green,
-                                      ),
-                                    );
-                                  }
-                                } else {
-                                  await securityService.disableBiometric();
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Biometric unlock disabled'),
-                                        backgroundColor: Colors.orange,
-                                      ),
-                                    );
-                                  }
-                                }
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Error: $e'),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                }
-                              }
-                            }
-                          : null,
-                    ),
-                  ),
-
-                  // Change PIN (only show if PIN is enabled)
-                  if (securityService.isPinEnabled) ...[
-                    const Divider(height: 1),
-                    ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: Colors.orange.shade50,
-                        child: Icon(Icons.pin, color: Colors.orange),
-                      ),
-                      title: const Text('Change PIN'),
-                      subtitle: const Text('Update your security PIN'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ChangePinScreen(),
+              const SizedBox(width: 16),
+              // User Info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          user?.username ?? 'User',
+                          style: TextStyle(
+                            color: sectionTitleColor,
+                            fontSize: 15.5,
+                            fontWeight: FontWeight.w700,
                           ),
-                        );
-                      },
+                        ),
+                        const SizedBox(width: 8),
+                        if (user?.hasLinkedGoogleAccount == true)
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF10B981),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      user?.email ?? 'No email',
+                      style: TextStyle(
+                        color: sectionTitleColor.withValues(alpha: 0.65),
+                        fontSize: 13,
+                      ),
                     ),
                   ],
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Backup & Storage Section
-            Text(
-              'Backup & Storage',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[700],
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            Card(
-              child: ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: Colors.blue.shade50,
-                  child: Icon(Icons.backup, color: Colors.blue),
                 ),
-                title: const Text('Backup & Restore'),
-                subtitle: Text(
-                  user?.hasLinkedGoogleAccount == true
-                      ? 'Connected to ${user!.backupGoogleAccountEmail}'
-                      : 'Not connected',
-                  style: TextStyle(
-                    color: user?.hasLinkedGoogleAccount == true
-                        ? Colors.green
-                        : Colors.grey[600],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------- Security Section ----------------
+  Widget _buildSecuritySection(Color surfaceCard, Color sectionTitleColor, securityService, context) {
+    final cs = Theme.of(context).colorScheme;
+
+    Widget row({
+      required IconData icon,
+      required String title,
+      required Widget trailing,
+      bool topDivider = false,
+    }) {
+      return Column(
+        children: [
+          if (topDivider) Divider(height: 1, color: sectionTitleColor.withValues(alpha: 0.12)),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            child: Row(
+              children: [
+                Icon(icon, color: sectionTitleColor.withValues(alpha: 0.8)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(color: sectionTitleColor, fontWeight: FontWeight.w600),
                   ),
                 ),
-                trailing: const Icon(Icons.chevron_right),
+                trailing,
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: surfaceCard,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 18, offset: const Offset(0, 10))],
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Security & Privacy', style: TextStyle(color: sectionTitleColor, fontSize: 16, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 6),
+          row(
+            icon: Icons.lock,
+            title: 'App Lock (PIN)',
+            trailing: Switch.adaptive(
+              value: securityService.isPinEnabled,
+              onChanged: (value) async {
+                if (value) {
+                  // Enable PIN
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const SetupPinScreen()),
+                  );
+                  if (result == true && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('PIN protection enabled!'), backgroundColor: Colors.green),
+                    );
+                  }
+                } else {
+                  // Disable PIN
+                  final verified = await Navigator.push<bool>(
+                    context,
+                    MaterialPageRoute(builder: (context) => const VerifyPinScreen(title: 'Verify PIN to Disable')),
+                  );
+                  if (verified == true && context.mounted) {
+                    await securityService.deletePin();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('PIN protection disabled'), backgroundColor: Colors.orange),
+                      );
+                    }
+                  }
+                }
+              },
+              activeThumbColor: cs.primary,
+            ),
+          ),
+          if (securityService.isPinEnabled) ...[
+            row(
+              icon: Icons.fingerprint,
+              title: 'Biometric Unlock',
+              topDivider: true,
+              trailing: Switch.adaptive(
+                value: securityService.isBiometricEnabled,
+                onChanged: (value) async {
+                  try {
+                    if (value) {
+                      await securityService.enableBiometric();
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Biometric unlock enabled!'), backgroundColor: Colors.green),
+                        );
+                      }
+                    } else {
+                      await securityService.disableBiometric();
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Biometric unlock disabled'), backgroundColor: Colors.orange),
+                        );
+                      }
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                      );
+                    }
+                  }
+                },
+                activeThumbColor: cs.primary,
+              ),
+            ),
+            row(
+              icon: Icons.pin,
+              title: 'Change PIN',
+              topDivider: true,
+              trailing: GestureDetector(
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (context) => const BackupScreen(),
-                    ),
+                    MaterialPageRoute(builder: (context) => const ChangePinScreen()),
                   );
                 },
+                child: Row(
+                  children: [
+                    Text(
+                      'Update',
+                      style: TextStyle(color: sectionTitleColor.withValues(alpha: 0.75)),
+                    ),
+                    const SizedBox(width: 6),
+                    Icon(Icons.chevron_right, color: sectionTitleColor),
+                  ],
+                ),
               ),
             ),
-
-            const SizedBox(height: 24),
-
-            // App Settings Section
-            Text(
-              'App Settings',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[700],
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            Card(
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: Colors.green.shade50,
-                      child: Icon(
-                        themeService.isDarkMode ? Icons.dark_mode : Icons.light_mode,
-                        color: Colors.green,
-                      ),
-                    ),
-                    title: const Text('Theme'),
-                    subtitle: Text(themeService.isDarkMode ? 'Dark mode' : 'Light mode'),
-                    trailing: Switch(
-                      value: themeService.isDarkMode,
-                      onChanged: (value) async {
-                        await themeService.toggleTheme();
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Switched to ${value ? "dark" : "light"} mode',
-                              ),
-                              duration: const Duration(seconds: 1),
-                            ),
-                          );
-                        }
-                      },
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: Colors.teal.shade50,
-                      child: Icon(Icons.language, color: Colors.teal),
-                    ),
-                    title: const Text('Language'),
-                    subtitle: Text(languageService.isArabic ? 'العربية' : 'English'),
-                    trailing: Switch(
-                      value: languageService.isArabic,
-                      onChanged: (value) async {
-                        await languageService.toggleLanguage();
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Switched to ${value ? "Arabic" : "English"}',
-                              ),
-                              duration: const Duration(seconds: 1),
-                            ),
-                          );
-                        }
-                      },
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: Colors.indigo.shade50,
-                      child: Icon(Icons.notifications, color: Colors.indigo),
-                    ),
-                    title: const Text('Notifications'),
-                    subtitle: const Text('Manage app notifications'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const NotificationSettingsScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Account Section
-            Text(
-              'Account',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[700],
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            Card(
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: Colors.blue.shade50,
-                      child: Icon(Icons.info, color: Colors.blue),
-                    ),
-                    title: const Text('About'),
-                    subtitle: const Text('App version and information'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      showAboutDialog(
-                        context: context,
-                        applicationName: 'Al Khazna',
-                        applicationVersion: '1.0.0',
-                        applicationIcon: Icon(
-                          Icons.account_balance_wallet_outlined,
-                          size: 48,
-                          color: Colors.indigo,
-                        ),
-                        children: [
-                          const Text(
-                            'A simple and elegant app for tracking your monthly income and expenses.',
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: Colors.red.shade50,
-                      child: Icon(Icons.logout, color: Colors.red),
-                    ),
-                    title: const Text('Sign Out'),
-                    subtitle: const Text('Sign out of your account'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Sign Out'),
-                          content: const Text('Are you sure you want to sign out?'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('Cancel'),
-                            ),
-                            ElevatedButton(
-                              onPressed: () async {
-                                Navigator.pop(context); // Close dialog
-                                await authService.signOut();
-                                if (context.mounted) {
-                                  Navigator.of(context).pushAndRemoveUntil(
-                                    MaterialPageRoute(
-                                      builder: (context) => const LoginScreen(),
-                                    ),
-                                    (route) => false,
-                                  );
-                                }
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
-                                foregroundColor: Colors.white,
-                              ),
-                              child: const Text('Sign Out'),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 32),
           ],
-        ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------- Backup Section ----------------
+  Widget _buildBackupSection(Color surfaceCard, Color sectionTitleColor, user, context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: surfaceCard,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 18, offset: const Offset(0, 10))],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Backup & Storage', style: TextStyle(color: sectionTitleColor, fontSize: 16, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 14),
+          OutlinedButton.icon(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const BackupScreen()),
+              );
+            },
+            icon: const Icon(Icons.backup, color: Color(0xFF2196F3)),
+            label: Text(
+              user?.hasLinkedGoogleAccount == true
+                  ? 'Connected to ${user!.backupGoogleAccountEmail}'
+                  : 'Not connected',
+              style: TextStyle(
+                color: user?.hasLinkedGoogleAccount == true ? const Color(0xFF10B981) : const Color(0xFF2196F3),
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+              ),
+            ),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(50),
+              side: BorderSide(
+                color: user?.hasLinkedGoogleAccount == true ? const Color(0xFF10B981) : const Color(0xFF2196F3),
+                width: 1.3,
+              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(45)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------- App Settings Section ----------------
+  Widget _buildAppSettingsSection(Color surfaceCard, Color sectionTitleColor, themeService, languageService, context) {
+    final cs = Theme.of(context).colorScheme;
+
+    Widget row({
+      required IconData icon,
+      required String title,
+      required Widget trailing,
+      bool topDivider = false,
+    }) {
+      return Column(
+        children: [
+          if (topDivider) Divider(height: 1, color: sectionTitleColor.withValues(alpha: 0.12)),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            child: Row(
+              children: [
+                Icon(icon, color: sectionTitleColor.withValues(alpha: 0.8)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(color: sectionTitleColor, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                trailing,
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: surfaceCard,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 18, offset: const Offset(0, 10))],
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('App Settings', style: TextStyle(color: sectionTitleColor, fontSize: 16, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 6),
+          row(
+            icon: themeService.isDarkMode ? Icons.dark_mode : Icons.light_mode,
+            title: 'Theme',
+            trailing: Switch.adaptive(
+              value: themeService.isDarkMode,
+              onChanged: (value) async {
+                await themeService.toggleTheme();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Switched to ${value ? "dark" : "light"} mode'),
+                      duration: const Duration(seconds: 1),
+                    ),
+                  );
+                }
+              },
+              activeThumbColor: cs.primary,
+            ),
+          ),
+          row(
+            icon: Icons.language,
+            title: 'Language',
+            topDivider: true,
+            trailing: Switch.adaptive(
+              value: languageService.isArabic,
+              onChanged: (value) async {
+                await languageService.toggleLanguage();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Switched to ${value ? "Arabic" : "English"}'),
+                      duration: const Duration(seconds: 1),
+                    ),
+                  );
+                }
+              },
+              activeThumbColor: cs.primary,
+            ),
+          ),
+          row(
+            icon: Icons.notifications,
+            title: 'Notifications',
+            topDivider: true,
+            trailing: GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const NotificationSettingsScreen()),
+                );
+              },
+              child: Row(
+                children: [
+                  Text(
+                    'Manage',
+                    style: TextStyle(color: sectionTitleColor.withValues(alpha: 0.75)),
+                  ),
+                  const SizedBox(width: 6),
+                  Icon(Icons.chevron_right, color: sectionTitleColor),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------- Account Section ----------------
+  Widget _buildAccountSection(Color surfaceCard, Color sectionTitleColor, authService, context) {
+    final cs = Theme.of(context).colorScheme;
+
+    Widget row({
+      required IconData icon,
+      required String title,
+      required VoidCallback onTap,
+      Color? iconColor,
+      bool topDivider = false,
+    }) {
+      return Column(
+        children: [
+          if (topDivider) Divider(height: 1, color: sectionTitleColor.withValues(alpha: 0.12)),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            child: Row(
+              children: [
+                Icon(icon, color: iconColor ?? sectionTitleColor.withValues(alpha: 0.8)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(color: sectionTitleColor, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                Icon(Icons.chevron_right, color: sectionTitleColor),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: surfaceCard,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 18, offset: const Offset(0, 10))],
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Account', style: TextStyle(color: sectionTitleColor, fontSize: 16, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 6),
+          row(
+            icon: Icons.info,
+            title: 'About',
+            iconColor: cs.primary,
+            onTap: () {
+              showAboutDialog(
+                context: context,
+                applicationName: 'Al Khazna',
+                applicationVersion: '1.0.0',
+                applicationIcon: Icon(Icons.account_balance_wallet_outlined, size: 48, color: cs.primary),
+                children: [
+                  const Text('A simple and elegant app for tracking your monthly income and expenses.'),
+                ],
+              );
+            },
+          ),
+          row(
+            icon: Icons.logout,
+            title: 'Sign Out',
+            iconColor: Colors.red,
+            topDivider: true,
+            onTap: () {
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Sign Out'),
+                  content: const Text('Are you sure you want to sign out?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () async {
+                        Navigator.pop(context);
+                        await authService.signOut();
+                        if (context.mounted) {
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute(builder: (context) => const LoginScreen()),
+                            (route) => false,
+                          );
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                      child: const Text('Sign Out'),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
