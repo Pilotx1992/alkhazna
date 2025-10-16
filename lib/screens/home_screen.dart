@@ -1,5 +1,3 @@
-import 'package:provider/provider.dart';
-import 'login_screen.dart';
 import 'settings_screen.dart';
 
 import "package:flutter/material.dart";
@@ -7,7 +5,6 @@ import "package:shared_preferences/shared_preferences.dart";
 
 import "month_page.dart";
 import "../services/storage_service.dart";
-import "../services/auth_service.dart";
 import "../services/connectivity_service.dart";
 
 class HomeScreen extends StatefulWidget {
@@ -468,21 +465,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   context,
                   MaterialPageRoute(builder: (context) => const SettingsScreen()),
                 );
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.logout),
-              tooltip: 'Sign Out',
-              onPressed: () async {
-                // Use AuthService for proper sign out
-                final authService = Provider.of<AuthService>(context, listen: false);
-                await authService.signOut();
-                if (context.mounted) {
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (context) => const LoginScreen()),
-                    (route) => false,
-                  );
-                }
               },
             ),
             const SizedBox(width: 8),
