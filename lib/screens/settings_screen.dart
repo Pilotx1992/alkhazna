@@ -181,56 +181,42 @@ class SettingsScreen extends StatelessWidget {
             ],
           ),
           
-          // Sign Out Button
-          const SizedBox(height: 16),
-          Divider(height: 1, color: sectionTitleColor.withValues(alpha: 0.12)),
+          // Sign Out Icon Button
           const SizedBox(height: 12),
-          InkWell(
-            onTap: () {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Sign Out'),
-                  content: const Text('Are you sure you want to sign out?'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Cancel'),
-                    ),
-                    ElevatedButton(
-                      onPressed: () async {
-                        Navigator.pop(context);
-                        await authService.signOut();
-                        if (context.mounted) {
-                          Navigator.of(context).pushAndRemoveUntil(
-                            MaterialPageRoute(builder: (context) => const LoginScreen()),
-                            (route) => false,
-                          );
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-                      child: const Text('Sign Out'),
-                    ),
-                  ],
-                ),
-              );
-            },
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
-              child: Row(
-                children: [
-                  Icon(Icons.logout, color: Colors.red.withValues(alpha: 0.8)),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Sign Out',
-                      style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
-                    ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: IconButton(
+              icon: Icon(Icons.logout, color: Colors.red),
+              tooltip: 'Sign Out',
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Sign Out'),
+                    content: const Text('Are you sure you want to sign out?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Cancel'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () async {
+                          Navigator.pop(context);
+                          await authService.signOut();
+                          if (context.mounted) {
+                            Navigator.of(context).pushAndRemoveUntil(
+                              MaterialPageRoute(builder: (context) => const LoginScreen()),
+                              (route) => false,
+                            );
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                        child: const Text('Sign Out'),
+                      ),
+                    ],
                   ),
-                  Icon(Icons.chevron_right, color: sectionTitleColor),
-                ],
-              ),
+                );
+              },
             ),
           ),
         ],
