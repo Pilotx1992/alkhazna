@@ -17,6 +17,9 @@ class MonthPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Directionality(
       textDirection: TextDirection.ltr,
       child: DefaultTabController(
@@ -38,36 +41,60 @@ class MonthPage extends StatelessWidget {
               ),
             },
             child: Scaffold(
-              backgroundColor: Colors.grey[100],
+              backgroundColor: colorScheme.surface,
               appBar: AppBar(
-                backgroundColor: Colors.white,
+                backgroundColor: colorScheme.surface,
                 elevation: 0,
                 automaticallyImplyLeading: false,
-                title: Text(
-                  '$month $year',
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+                leading: IconButton(
+                  icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
+                  onPressed: () => Navigator.of(context).pop(),
+                  tooltip: 'Back',
+                ),
+                title: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.calendar_today,
+                      size: 20,
+                      color: colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '$month $year',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
                 bottom: TabBar(
-                  labelColor: const Color(0xFF2196F3),
-                  unselectedLabelColor: Colors.grey[600],
-                  indicatorColor: const Color(0xFF2196F3),
+                  labelColor: colorScheme.primary,
+                  unselectedLabelColor: colorScheme.onSurface.withAlpha((0.6 * 255).round()),
+                  indicatorColor: colorScheme.primary,
                   indicatorWeight: 3,
-                  tabs: const [
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  dividerColor: colorScheme.outline.withAlpha((0.2 * 255).round()),
+                  labelStyle: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                  unselectedLabelStyle: theme.textTheme.labelLarge,
+                  tabs: [
                     Tab(
-                      icon: Icon(Icons.attach_money),
+                      icon: Icon(Icons.attach_money, size: 22),
                       text: 'Income',
+                      iconMargin: const EdgeInsets.only(bottom: 4),
                     ),
                     Tab(
-                      icon: Icon(Icons.shopping_cart_outlined),
+                      icon: Icon(Icons.shopping_cart_outlined, size: 22),
                       text: 'Expenses',
+                      iconMargin: const EdgeInsets.only(bottom: 4),
                     ),
                     Tab(
-                      icon: Icon(Icons.account_balance_wallet_outlined),
+                      icon: Icon(Icons.account_balance_wallet_outlined, size: 22),
                       text: 'Balance',
+                      iconMargin: const EdgeInsets.only(bottom: 4),
                     ),
                   ],
                 ),
