@@ -6,6 +6,7 @@ import '../services/security_service.dart';
 import '../services/theme_service.dart';
 import '../services/language_service.dart';
 import '../backup/ui/backup_screen.dart';
+import '../backup/services/backup_service.dart';
 import 'security/setup_pin_screen.dart';
 import 'security/change_pin_screen.dart';
 import 'security/verify_pin_screen.dart';
@@ -387,11 +388,69 @@ class SettingsScreen extends StatelessWidget {
           row(
             icon: Icons.backup,
             title: 'Backup & Restore',
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const BackupScreen()),
+            onTap: () async {
+              // Show loading indicator
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => const Center(
+                  child: Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(20),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 16),
+                          Text('Signing in to Google...'),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               );
+
+              try {
+                // Auto sign in silently
+                final backupService = BackupService();
+                final isSignedIn = await backupService.performAutoSignIn();
+                
+                // Close loading dialog
+                if (context.mounted) Navigator.of(context).pop();
+                
+                if (isSignedIn) {
+                  // Navigate to backup screen
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const BackupScreen()),
+                  );
+                } else {
+                  // Show error message
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Failed to sign in to Google. Please try again.'),
+                        backgroundColor: Colors.red,
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                }
+              } catch (e) {
+                // Close loading dialog
+                if (context.mounted) Navigator.of(context).pop();
+                
+                // Show error message
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error: ${e.toString()}'),
+                      backgroundColor: Colors.red,
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                }
+              }
             },
           ),
         ],
