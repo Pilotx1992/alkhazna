@@ -143,116 +143,198 @@ class AppTheme {
   }
 
   static ThemeData get darkTheme {
+    // Enhanced dark theme with better contrast and modern colors
+    const primaryColor = Color(0xFF7C4DFF); // Vibrant purple
+    const secondaryColor = Color(0xFF536DFE); // Bright indigo
+    const surfaceColor = Color(0xFF1E1E2E); // Softer dark surface
+    const backgroundColor = Color(0xFF181825); // Deep background
+    const cardColor = Color(0xFF262637); // Elevated card color
+
     return ThemeData(
       useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: Colors.indigo,
-        brightness: Brightness.dark,
+      colorScheme: ColorScheme.dark(
+        primary: primaryColor,
+        secondary: secondaryColor,
+        surface: surfaceColor,
+        surfaceContainer: cardColor,
+        onPrimary: Colors.white,
+        onSecondary: Colors.white,
+        onSurface: Colors.white,
+        error: const Color(0xFFCF6679),
       ),
-      scaffoldBackgroundColor: const Color(0xFF121212),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: Color(0xFF1E1E1E),
-        foregroundColor: Colors.indigoAccent,
-        elevation: 2,
+      scaffoldBackgroundColor: backgroundColor,
+
+      appBarTheme: AppBarTheme(
+        backgroundColor: surfaceColor,
+        foregroundColor: primaryColor,
+        elevation: 0,
         centerTitle: true,
-        titleTextStyle: TextStyle(
+        titleTextStyle: const TextStyle(
           fontWeight: FontWeight.bold,
           fontSize: 24,
-          color: Colors.indigoAccent,
+          color: Colors.white,
           fontFamily: 'Cairo',
         ),
-        iconTheme: IconThemeData(color: Colors.indigoAccent, size: 28),
+        iconTheme: const IconThemeData(color: Colors.white, size: 28),
       ),
+
       textTheme: const TextTheme(
-        bodyLarge:
-            TextStyle(color: Colors.white70, fontSize: 18, fontFamily: 'Cairo'),
-        bodyMedium:
-            TextStyle(color: Colors.white70, fontSize: 16, fontFamily: 'Cairo'),
+        bodyLarge: TextStyle(color: Colors.white, fontSize: 18, fontFamily: 'Cairo'),
+        bodyMedium: TextStyle(color: Colors.white70, fontSize: 16, fontFamily: 'Cairo'),
         titleLarge: TextStyle(
-            color: Colors.indigoAccent,
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'Cairo'),
+          color: Colors.white,
+          fontSize: 22,
+          fontWeight: FontWeight.bold,
+          fontFamily: 'Cairo',
+        ),
         headlineMedium: TextStyle(
-            color: Colors.indigoAccent,
-            fontSize: 32,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'Cairo'),
+          color: primaryColor,
+          fontSize: 32,
+          fontWeight: FontWeight.bold,
+          fontFamily: 'Cairo',
+        ),
       ),
+
       inputDecorationTheme: InputDecorationTheme(
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Colors.indigoAccent, width: 1),
+          borderSide: BorderSide(color: Colors.white.withAlpha((0.3 * 255).round()), width: 1),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Colors.indigoAccent, width: 2),
+          borderSide: const BorderSide(color: primaryColor, width: 2),
         ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         isDense: true,
-        fillColor: const Color(0xFF1E1E1E),
+        fillColor: cardColor,
         filled: true,
+        labelStyle: const TextStyle(color: Colors.white70),
+        hintStyle: TextStyle(color: Colors.white.withAlpha((0.5 * 255).round())),
       ),
+
       cardTheme: CardThemeData(
-        color: const Color(0xFF1E1E1E),
-        elevation: 4,
+        color: cardColor,
+        elevation: 2,
+        shadowColor: Colors.black.withAlpha((0.4 * 255).round()),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(30),
         ),
         margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 0),
-        shadowColor: Colors.black.withAlpha((0.3 * 255).round()),
       ),
+
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.indigoAccent,
-          foregroundColor: Colors.black,
+          backgroundColor: primaryColor,
+          foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(30),
           ),
           textStyle: const TextStyle(
-              fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'Cairo'),
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Cairo',
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
           elevation: 4,
         ),
       ),
+
       iconButtonTheme: IconButtonThemeData(
         style: ButtonStyle(
-          backgroundColor: WidgetStateProperty.all(Colors.indigoAccent.withAlpha((0.2 * 255).round())),
-          iconColor: WidgetStateProperty.all(Colors.indigoAccent),
-          shape: WidgetStateProperty.all(RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30),
-          )),
+          backgroundColor: WidgetStateProperty.all(
+            primaryColor.withAlpha((0.2 * 255).round()),
+          ),
+          iconColor: WidgetStateProperty.all(primaryColor),
+          shape: WidgetStateProperty.all(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+          ),
         ),
       ),
+
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: Colors.indigoAccent,
-        foregroundColor: Colors.black,
+        backgroundColor: primaryColor,
+        foregroundColor: Colors.white,
         elevation: 4,
         shape: StadiumBorder(),
       ),
-      snackBarTheme: const SnackBarThemeData(
-        backgroundColor: Colors.indigoAccent,
-        contentTextStyle:
-            TextStyle(color: Colors.black, fontSize: 16, fontFamily: 'Cairo'),
+
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: cardColor,
+        contentTextStyle: const TextStyle(
+          color: Colors.white,
+          fontSize: 16,
+          fontFamily: 'Cairo',
+        ),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(30))),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(30)),
+        ),
       ),
+
       tabBarTheme: const TabBarThemeData(
-        labelColor: Colors.indigoAccent,
+        labelColor: primaryColor,
         unselectedLabelColor: Colors.white54,
-        indicatorColor: Colors.indigoAccent,
+        indicatorColor: primaryColor,
         labelStyle: TextStyle(
-            fontWeight: FontWeight.bold, fontSize: 18, fontFamily: 'Cairo'),
+          fontWeight: FontWeight.bold,
+          fontSize: 18,
+          fontFamily: 'Cairo',
+        ),
       ),
-      dividerTheme: const DividerThemeData(
-        color: Colors.indigoAccent,
+
+      dividerTheme: DividerThemeData(
+        color: Colors.white.withAlpha((0.12 * 255).round()),
         thickness: 1,
         space: 24,
+      ),
+
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return primaryColor;
+          }
+          return Colors.grey;
+        }),
+        trackColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return primaryColor.withAlpha((0.5 * 255).round());
+          }
+          return Colors.grey.withAlpha((0.3 * 255).round());
+        }),
+      ),
+
+      listTileTheme: ListTileThemeData(
+        textColor: Colors.white,
+        iconColor: Colors.white70,
+        tileColor: cardColor,
+      ),
+
+      dialogTheme: DialogThemeData(
+        backgroundColor: cardColor,
+        titleTextStyle: const TextStyle(
+          color: Colors.white,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+          fontFamily: 'Cairo',
+        ),
+        contentTextStyle: const TextStyle(
+          color: Colors.white70,
+          fontSize: 16,
+          fontFamily: 'Cairo',
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(30),
+        ),
+      ),
+
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: surfaceColor,
+        selectedItemColor: primaryColor,
+        unselectedItemColor: Colors.white54,
+        type: BottomNavigationBarType.fixed,
       ),
     );
   }
