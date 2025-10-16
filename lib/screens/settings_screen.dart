@@ -306,25 +306,30 @@ class SettingsScreen extends StatelessWidget {
               icon: Icons.pin,
               title: 'Change PIN',
               topDivider: true,
-              trailing: GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
+              trailing: InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
                     MaterialPageRoute(builder: (context) => const ChangePinScreen()),
                   );
                 },
-                child: Row(
-                  children: [
-                    Text(
-                      'Update',
-                      style: TextStyle(color: sectionTitleColor.withValues(alpha: 0.75)),
-                    ),
-                    const SizedBox(width: 6),
-                    Icon(Icons.chevron_right, color: sectionTitleColor),
-                  ],
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Update',
+                        style: TextStyle(color: sectionTitleColor.withValues(alpha: 0.75)),
+                      ),
+                      const SizedBox(width: 6),
+                      Icon(Icons.chevron_right, color: sectionTitleColor, size: 16),
+                    ],
+                  ),
                 ),
               ),
-                    ),
+            ),
                   ],
                 ],
               ),
@@ -343,20 +348,24 @@ class SettingsScreen extends StatelessWidget {
       return Column(
         children: [
           if (topDivider) Divider(height: 1, color: sectionTitleColor.withValues(alpha: 0.12)),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            child: Row(
-              children: [
-                Icon(icon, color: iconColor ?? sectionTitleColor.withValues(alpha: 0.8)),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(color: sectionTitleColor, fontWeight: FontWeight.w600),
+          InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
+              child: Row(
+                children: [
+                  Icon(icon, color: iconColor ?? sectionTitleColor.withValues(alpha: 0.8)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(color: sectionTitleColor, fontWeight: FontWeight.w600),
+                    ),
                   ),
-                ),
-                Icon(Icons.chevron_right, color: sectionTitleColor),
-              ],
+                  Icon(Icons.chevron_right, color: sectionTitleColor),
+                ],
+              ),
             ),
           ),
         ],
@@ -479,22 +488,27 @@ class SettingsScreen extends StatelessWidget {
             icon: Icons.notifications,
             title: 'Notifications',
             topDivider: true,
-            trailing: GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
+            trailing: InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
                   MaterialPageRoute(builder: (context) => const NotificationSettingsScreen()),
-                      );
-                    },
-              child: Row(
-                children: [
-                  Text(
-                    'Manage',
-                    style: TextStyle(color: sectionTitleColor.withValues(alpha: 0.75)),
-                  ),
-                  const SizedBox(width: 6),
-                  Icon(Icons.chevron_right, color: sectionTitleColor),
-                ],
+                );
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Manage',
+                      style: TextStyle(color: sectionTitleColor.withValues(alpha: 0.75)),
+                    ),
+                    const SizedBox(width: 6),
+                    Icon(Icons.chevron_right, color: sectionTitleColor, size: 16),
+                  ],
+                ),
               ),
             ),
           ),
@@ -517,20 +531,24 @@ class SettingsScreen extends StatelessWidget {
       return Column(
         children: [
           if (topDivider) Divider(height: 1, color: sectionTitleColor.withValues(alpha: 0.12)),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            child: Row(
-              children: [
-                Icon(icon, color: iconColor ?? sectionTitleColor.withValues(alpha: 0.8)),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(color: sectionTitleColor, fontWeight: FontWeight.w600),
+          InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
+              child: Row(
+                children: [
+                  Icon(icon, color: iconColor ?? sectionTitleColor.withValues(alpha: 0.8)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(color: sectionTitleColor, fontWeight: FontWeight.w600),
+                    ),
                   ),
-                ),
-                Icon(Icons.chevron_right, color: sectionTitleColor),
-              ],
+                  Icon(Icons.chevron_right, color: sectionTitleColor),
+                ],
+              ),
             ),
           ),
         ],
