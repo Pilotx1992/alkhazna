@@ -158,8 +158,8 @@ class EncryptionService {
       }
 
       // Compute checksum of encrypted cipher text for integrity
-      final _cipherBytes = base64Decode(encryptedData['data']!);
-      final _digest = sha256.convert(_cipherBytes).toString();
+      final cipherBytes = base64Decode(encryptedData['data']!);
+      final digest = sha256.convert(cipherBytes).toString();
 
       // Add metadata
       final result = {
@@ -168,7 +168,7 @@ class EncryptionService {
         'backup_id': backupId,
         'original_size': databaseBytes.length,
         'timestamp': DateTime.now().toIso8601String(),
-        'checksum': _digest,
+        'checksum': digest,
         ...encryptedData,
       };
 
@@ -223,17 +223,17 @@ class EncryptionService {
 
       // Verify checksum of encrypted data before decryption (if present)
       try {
-        final _cipherPreview = encryptedBackup['data'];
-        if (_cipherPreview is String && encryptedBackup.containsKey('checksum')) {
-          final _cipher = base64Decode(_cipherPreview);
-          final _expected = encryptedBackup['checksum'] as String?;
-          if (_expected != null) {
-            final _actual = sha256.convert(_cipher).toString();
-            if (_actual != _expected) {
+        final cipherPreview = encryptedBackup['data'];
+        if (cipherPreview is String && encryptedBackup.containsKey('checksum')) {
+          final cipher = base64Decode(cipherPreview);
+          final expected = encryptedBackup['checksum'] as String?;
+          if (expected != null) {
+            final actual = sha256.convert(cipher).toString();
+            if (actual != expected) {
               if (kDebugMode) {
                 print('[EncryptionService] ❌ Integrity check failed: checksum mismatch');
-                print('[EncryptionService]    Expected: $_expected');
-                print('[EncryptionService]    Actual: $_actual');
+                print('[EncryptionService]    Expected: $expected');
+                print('[EncryptionService]    Actual: $actual');
               }
               return null;
             } else {

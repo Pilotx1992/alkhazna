@@ -114,7 +114,7 @@ class BackupService extends ChangeNotifier {
       // Step 6: Upload to Drive
       _updateProgress(70, BackupStatus.uploading, 'Uploading to Google Drive...');
       final encryptedBytes = utf8.encode(json.encode(encryptedData));
-      final fileName = '${_backupPrefix}' + DateTime.now().millisecondsSinceEpoch.toString() + '.crypt14';
+      final fileName = '$_backupPrefix${DateTime.now().millisecondsSinceEpoch}.crypt14';
       final driveFileId = await _driveService.uploadFile(
         fileName: fileName,
         content: Uint8List.fromList(encryptedBytes),
@@ -238,7 +238,7 @@ class BackupService extends ChangeNotifier {
       // Step 6: Upload to Drive
       _updateProgress(70, BackupStatus.uploading, 'Uploading to Google Drive...');
       final encryptedBytes = utf8.encode(json.encode(encryptedData));
-      final fileName = '${_backupPrefix}' + DateTime.now().millisecondsSinceEpoch.toString() + '.crypt14';
+      final fileName = '$_backupPrefix${DateTime.now().millisecondsSinceEpoch}.crypt14';
       final driveFileId = await _driveService.uploadFile(
         fileName: fileName,
         content: Uint8List.fromList(encryptedBytes),
@@ -425,7 +425,7 @@ class BackupService extends ChangeNotifier {
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Retention prune error: ' + e.toString());
+        print('Retention prune error: $e');
       }
     }
   }
@@ -817,7 +817,7 @@ class BackupService extends ChangeNotifier {
   bool get isSignedIn => _driveService.isSignedIn;
 
   /// Get current user
-  get currentUser => _driveService.currentUser;
+  dynamic get currentUser => _driveService.currentUser;
 
   /// Perform automatic silent sign in
   Future<bool> performAutoSignIn() async {

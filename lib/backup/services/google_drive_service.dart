@@ -365,11 +365,11 @@ class GoogleDriveService {
       }
       await _driveApi!.files.delete(fileId);
       if (kDebugMode) {
-        print('Deleted Drive file: ' + fileId);
+        print('Deleted Drive file: $fileId');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Error deleting Drive file: ' + e.toString());
+        print('Error deleting Drive file: $e');
       }
     }
   }
