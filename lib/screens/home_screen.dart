@@ -1,8 +1,6 @@
 import 'package:provider/provider.dart';
 import 'login_screen.dart';
 import 'settings_screen.dart';
-import '../backup/ui/backup_screen.dart';
-import '../backup/services/backup_service.dart';
 
 import "package:flutter/material.dart";
 import "package:shared_preferences/shared_preferences.dart";
@@ -434,132 +432,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
             
             const SizedBox(height: 16),
-            
-            // Backup Section
-            Card(
-              elevation: 2,
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  gradient: LinearGradient(
-                    colors: [
-                      colorScheme.surfaceContainer,
-                      colorScheme.surfaceContainer.withAlpha((255 * 0.8).round()),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withAlpha((255 * 0.05).round()),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Backup & Restore',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          color: colorScheme.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      // Backup & Restore Button
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          onPressed: () async {
-                            // Show loading indicator
-                            showDialog(
-                              context: context,
-                              barrierDismissible: false,
-                              builder: (context) => const Center(
-                                child: Card(
-                                  child: Padding(
-                                    padding: EdgeInsets.all(20),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        CircularProgressIndicator(),
-                                        SizedBox(height: 16),
-                                        Text('Signing in to Google...'),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-
-                            try {
-                              // Auto sign in silently
-                              final backupService = BackupService();
-                              final isSignedIn = await _performAutoSignIn(backupService);
-                              
-                              // Close loading dialog
-                              if (mounted) Navigator.of(context).pop();
-                              
-                              if (isSignedIn) {
-                                // Navigate to backup screen
-                                await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const BackupScreen(),
-                                  ),
-                                );
-                                // Refresh home screen data after returning from backup screen
-                                _loadTotals();
-                              } else {
-                                // Show error message
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Failed to sign in to Google. Please try again.'),
-                                      backgroundColor: Colors.red,
-                                      duration: Duration(seconds: 2),
-                                    ),
-                                  );
-                                }
-                              }
-                            } catch (e) {
-                              // Close loading dialog
-                              if (mounted) Navigator.of(context).pop();
-                              
-                              // Show error message
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Error: ${e.toString()}'),
-                                    backgroundColor: Colors.red,
-                                    duration: const Duration(seconds: 2),
-                                  ),
-                                );
-                              }
-                            }
-                          },
-                          icon: const Icon(Icons.cloud_outlined, size: 20),
-                          label: const Text('Backup & Data Center'),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: colorScheme.primary,
-                            foregroundColor: colorScheme.onPrimary,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            
-            
           ],
         ),
       ),
@@ -628,13 +500,4 @@ class _HomeScreenState extends State<HomeScreen> {
     // TODO: Re-implement backup/restore functionality
   }
 
-  /// Perform automatic silent sign in to Google
-  Future<bool> _performAutoSignIn(BackupService backupService) async {
-    try {
-      return await backupService.performAutoSignIn();
-    } catch (e) {
-      print('Auto sign in error: $e');
-      return false;
-    }
-  }
 }
