@@ -231,12 +231,6 @@ class PinInputWidgetState extends State<PinInputWidget>
 
         // Numeric Keypad
         _buildKeypad(),
-
-        // Biometric Button (optional)
-        if (widget.showBiometricButton) ...[
-          const SizedBox(height: 24),
-          _buildBiometricButton(),
-        ],
       ],
     );
   }
@@ -276,11 +270,14 @@ class PinInputWidgetState extends State<PinInputWidget>
             ],
           ),
           const SizedBox(height: 16),
-          // Row 4: [empty] 0 [delete]
+          // Row 4: [biometric/empty] 0 [delete]
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              const SizedBox(width: 70, height: 70), // Empty space
+              // Show biometric button or empty space
+              widget.showBiometricButton
+                  ? _buildBiometricKeypadButton()
+                  : const SizedBox(width: 70, height: 70),
               _buildKey('0'),
               _buildDeleteKey(),
             ],
@@ -339,35 +336,23 @@ class PinInputWidgetState extends State<PinInputWidget>
     );
   }
 
-  Widget _buildBiometricButton() {
-    return InkWell(
-      onTap: widget.onBiometricTap,
-      borderRadius: BorderRadius.circular(30),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.indigo.shade50,
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: Colors.indigo, width: 1),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.fingerprint,
-              color: Colors.indigo,
-              size: 28,
-            ),
-            const SizedBox(width: 12),
-            Text(
-              'Use Fingerprint',
-              style: TextStyle(
-                color: Colors.indigo,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
+  Widget _buildBiometricKeypadButton() {
+    final isDisabled = widget.isLoading;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: isDisabled ? null : widget.onBiometricTap,
+        customBorder: const CircleBorder(),
+        child: Container(
+          width: 70,
+          height: 70,
+          alignment: Alignment.center,
+          child: Icon(
+            Icons.fingerprint,
+            size: 32,
+            color: isDisabled ? Colors.grey[400] : Colors.indigo,
+          ),
         ),
       ),
     );
