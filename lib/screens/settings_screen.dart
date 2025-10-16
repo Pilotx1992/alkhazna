@@ -387,7 +387,6 @@ class SettingsScreen extends StatelessWidget {
           row(
             icon: Icons.backup,
             title: 'Backup & Restore',
-            iconColor: const Color(0xFF2196F3),
             onTap: () {
               Navigator.push(
                 context,
