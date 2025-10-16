@@ -122,67 +122,63 @@ class SettingsScreen extends StatelessWidget {
         ],
       ),
       padding: const EdgeInsets.all(16),
-      child: Column(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Profile Avatar
-              Center(
-                child: CircleAvatar(
-                  radius: 22,
-                  backgroundImage: user?.profileImageUrl != null ? NetworkImage(user!.profileImageUrl!) : null,
-                  backgroundColor: cs.primary.withValues(alpha: 0.12),
-                  child: user?.profileImageUrl == null
-                      ? Icon(
-                          user?.username.isNotEmpty == true ? Icons.person : Icons.account_circle,
-                          color: cs.primary,
-                        )
-                      : null,
-                            ),
-                    ),
-                    const SizedBox(width: 16),
-              // User Info
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+          // Profile Avatar
+          Center(
+            child: CircleAvatar(
+              radius: 22,
+              backgroundImage: user?.profileImageUrl != null ? NetworkImage(user!.profileImageUrl!) : null,
+              backgroundColor: cs.primary.withValues(alpha: 0.12),
+              child: user?.profileImageUrl == null
+                  ? Icon(
+                      user?.username.isNotEmpty == true ? Icons.person : Icons.account_circle,
+                      color: cs.primary,
+                    )
+                  : null,
+            ),
+          ),
+          const SizedBox(width: 16),
+          // User Info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Row(
-                        children: [
-                          Text(
-                            user?.username ?? 'User',
-                          style: TextStyle(
-                            color: sectionTitleColor,
-                            fontSize: 15.5,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        if (user?.hasLinkedGoogleAccount == true)
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFF10B981),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                          Text(
-                            user?.email ?? 'No email',
+                    Text(
+                      user?.username ?? 'User',
                       style: TextStyle(
-                        color: sectionTitleColor.withValues(alpha: 0.65),
-                        fontSize: 13,
+                        color: sectionTitleColor,
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    if (user?.hasLinkedGoogleAccount == true)
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF10B981),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
                   ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  user?.email ?? 'No email',
+                  style: TextStyle(
+                    color: sectionTitleColor.withValues(alpha: 0.65),
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
