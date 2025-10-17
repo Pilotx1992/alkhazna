@@ -272,16 +272,21 @@ class _SignupScreenState extends State<SignupScreen>
   Widget _buildHeader() {
     return Column(
       children: [
-        Text(
-          'Create Account',
-          style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF2E7D32),
-            fontSize: 32,
+        Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Text(
+            'Create Account',
+            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF2E7D32),
+              fontSize: 32,
+              height: 1.3,
+              letterSpacing: -0.5,
+            ),
           ),
         ),
         const SizedBox(height: 8),
-       
+
       ],
     );
   }

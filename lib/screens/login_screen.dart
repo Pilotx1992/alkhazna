@@ -6,7 +6,6 @@ import '../models/auth_state.dart';
 import '../services/auth_service.dart';
 import 'signup_screen.dart';
 import 'home_screen.dart';
-import '../backup/ui/backup_screen.dart';
 import 'forgot_password_screen.dart';
 
 /// Modern login screen with eye-comfort design
@@ -181,18 +180,6 @@ class _LoginScreenState extends State<LoginScreen>
         elevation: 0,
         foregroundColor: Colors.indigo,
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.cloud_outlined, color: Colors.indigo),
-            tooltip: 'Backup & Restore',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const BackupScreen()),
-              );
-            },
-          ),
-        ],
       ),
       body: SafeArea(
         child: AnimatedBuilder(

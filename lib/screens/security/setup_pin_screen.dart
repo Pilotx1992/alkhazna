@@ -121,7 +121,7 @@ class _SetupPinScreenState extends State<SetupPinScreen> {
               children: [
                 Icon(Icons.check_circle, color: Colors.green),
                 const SizedBox(width: 12),
-                const Text('PIN Setup Complete'),
+                const Text('Setup Complete'),
               ],
             ),
             content: const Text(
@@ -210,40 +210,11 @@ class _SetupPinScreenState extends State<SetupPinScreen> {
   }
 
   Widget _buildStep1() {
-    return SingleChildScrollView(
+    return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const SizedBox(height: 40),
-
-          // Shield Icon
-          Container(
-            width: 120,
-            height: 120,
-            decoration: BoxDecoration(
-              color: Colors.indigo.shade50,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.shield_outlined,
-              size: 64,
-              color: Colors.indigo,
-            ),
-          ),
-
-          const SizedBox(height: 32),
-
-          Text(
-            'Secure your Al Khazna',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.indigo,
-                ),
-            textAlign: TextAlign.center,
-          ),
-
-          const SizedBox(height: 40),
-
           // PIN Input
           PinInputWidget(
             key: _step1Key,
@@ -270,12 +241,11 @@ class _SetupPinScreenState extends State<SetupPinScreen> {
   }
 
   Widget _buildStep2() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+    return Padding(
+      padding: const EdgeInsets.all(20),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const SizedBox(height: 60),
-
           // Progress indicator
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -290,7 +260,7 @@ class _SetupPinScreenState extends State<SetupPinScreen> {
             ],
           ),
 
-          const SizedBox(height: 60),
+          const SizedBox(height: 16),
 
           // PIN Input
           PinInputWidget(
@@ -302,7 +272,7 @@ class _SetupPinScreenState extends State<SetupPinScreen> {
             isLoading: _isLoading,
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
 
           // Back button
           if (!_isLoading)
