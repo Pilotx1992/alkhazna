@@ -264,14 +264,11 @@ class PinInputWidgetState extends State<PinInputWidget>
             ],
           ),
           const SizedBox(height: 16),
-          // Row 3: [biometric/7] 8 9
+          // Row 3: 7 8 9
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Show biometric button or 7
-              widget.showBiometricButton
-                  ? _buildBiometricKeypadButton()
-                  : _buildKey('7'),
+              _buildKey('7'),
               const SizedBox(width: 16),
               _buildKey('8'),
               const SizedBox(width: 16),
@@ -279,11 +276,14 @@ class PinInputWidgetState extends State<PinInputWidget>
             ],
           ),
           const SizedBox(height: 16),
-          // Row 4: [empty] 0 [delete]
+          // Row 4: [biometric/empty] 0 [delete]
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const SizedBox(width: 70, height: 70),
+              // Show biometric button or empty space
+              widget.showBiometricButton
+                  ? _buildBiometricKeypadButton()
+                  : const SizedBox(width: 70, height: 70),
               const SizedBox(width: 16),
               _buildKey('0'),
               const SizedBox(width: 16),
