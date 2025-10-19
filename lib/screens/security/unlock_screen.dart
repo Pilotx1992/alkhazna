@@ -24,7 +24,6 @@ class _UnlockScreenState extends State<UnlockScreen> {
   @override
   void initState() {
     super.initState();
-    _checkBiometricAutoPrompt();
     _startLockoutTimer();
   }
 
@@ -32,17 +31,6 @@ class _UnlockScreenState extends State<UnlockScreen> {
   void dispose() {
     _lockoutTimer?.cancel();
     super.dispose();
-  }
-
-  /// Auto-prompt biometric on screen load
-  void _checkBiometricAutoPrompt() async {
-    await Future.delayed(const Duration(milliseconds: 300));
-    if (mounted) {
-      final securityService = context.read<SecurityService>();
-      if (securityService.isBiometricEnabled && !securityService.isLockedOut) {
-        _onBiometricTap();
-      }
-    }
   }
 
   /// Start timer for lockout countdown
@@ -140,40 +128,11 @@ class _UnlockScreenState extends State<UnlockScreen> {
     }
   }
 
-  void _onBiometricTap() async {
-    final securityService = context.read<SecurityService>();
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final success = await securityService.authenticateWithBiometric();
-
-      if (success) {
-        // Success! App is now unlocked
-        _pinKey.currentState?.triggerSuccessHaptic();
-      } else {
-        // Biometric failed, allow PIN entry
-        setState(() {
-          _isLoading = false;
-          _errorMessage = 'Biometric failed. Use PIN instead';
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Biometric error. Use PIN instead';
-      });
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     final securityService = context.watch<SecurityService>();
     final isLockedOut = securityService.isLockedOut;
-    final biometricEnabled = securityService.isBiometricEnabled;
 
     return PopScope(
       canPop: false, // Prevent back navigation when locked
@@ -210,82 +169,19 @@ class _UnlockScreenState extends State<UnlockScreen> {
                       ),
                 ),
 
-                const SizedBox(height: 32),
+                const SizedBox(height: 48),
 
-                // BIOMETRIC FIRST - Large Prominent
-                if (biometricEnabled && !isLockedOut) ...[
-                  _buildBiometricSection(),
-                  const SizedBox(height: 32),
-
-                  // Divider
-                  Row(
-                    children: [
-                      Expanded(child: Divider(color: Colors.grey[400])),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Text(
-                          'or use PIN',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                      Expanded(child: Divider(color: Colors.grey[400])),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                ],
-
-                // Lockout message
-                if (isLockedOut) ...[
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.red.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.red.shade200),
-                    ),
-                    child: Column(
-                      children: [
-                        Icon(Icons.lock_clock, color: Colors.red, size: 32),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Too Many Failed Attempts',
-                          style: TextStyle(
-                            color: Colors.red,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Please wait $_remainingSeconds seconds',
-                          style: TextStyle(
-                            color: Colors.red.shade700,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-
-                // PIN Input (smaller, less prominent)
+                // PIN Input
                 PinInputWidget(
                   key: _pinKey,
                   title: isLockedOut ? 'Locked' : 'Enter PIN',
                   subtitle: isLockedOut
                       ? 'Wait for lockout to end'
-                      : biometricEnabled
-                          ? 'As an alternative to biometric'
-                          : 'Unlock to access your data',
+                      : 'Unlock to access your data',
                   onPinComplete: _onPinComplete,
                   errorMessage: _errorMessage,
                   isLoading: _isLoading || isLockedOut,
-                  showBiometricButton: false, // Hide old biometric button
+                  showBiometricButton: false,
                 ),
               ],
             ),
@@ -295,79 +191,4 @@ class _UnlockScreenState extends State<UnlockScreen> {
     );
   }
 
-  Widget _buildBiometricSection() {
-    return Column(
-      children: [
-        // Large pulsing biometric icon
-        TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0.95, end: 1.05),
-          duration: const Duration(milliseconds: 1500),
-          curve: Curves.easeInOut,
-          builder: (context, scale, child) {
-            return Transform.scale(
-              scale: scale,
-              child: child,
-            );
-          },
-          onEnd: () {
-            // Restart animation
-            if (mounted) {
-              setState(() {});
-            }
-          },
-          child: Container(
-            width: 120,
-            height: 120,
-            decoration: BoxDecoration(
-              color: Colors.indigo.shade50,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: Colors.indigo,
-                width: 3,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.indigo.withAlpha((0.3 * 255).round()),
-                  blurRadius: 20,
-                  spreadRadius: 2,
-                ),
-              ],
-            ),
-            child: InkWell(
-              onTap: _isLoading ? null : _onBiometricTap,
-              customBorder: const CircleBorder(),
-              child: Icon(
-                Icons.fingerprint,
-                size: 64,
-                color: Colors.indigo,
-              ),
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 16),
-
-        // Quick Unlock text
-        Text(
-          'Touch for Quick Unlock',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: Colors.indigo,
-          ),
-        ),
-
-        const SizedBox(height: 4),
-
-        // Subtitle
-        Text(
-          'Faster and more secure',
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.grey[600],
-          ),
-        ),
-      ],
-    );
-  }
 }
