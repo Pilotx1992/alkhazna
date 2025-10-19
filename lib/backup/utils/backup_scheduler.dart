@@ -22,7 +22,6 @@ class BackupScheduler {
     try {
       await Workmanager().initialize(
         callbackDispatcher,
-        isInDebugMode: kDebugMode,
       );
 
       if (kDebugMode) {
