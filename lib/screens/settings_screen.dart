@@ -488,42 +488,6 @@ class SettingsScreen extends StatelessWidget {
                 ),
               ),
             ),
-
-            // Lock Now Button
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton.icon(
-                onPressed: () async {
-                  await securityService.lockNow();
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('🔒 App locked'),
-                        duration: Duration(seconds: 1),
-                      ),
-                    );
-                  }
-                },
-                icon: const Icon(Icons.lock, size: 20),
-                label: const Text(
-                  'LOCK NOW',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
           ],
         ],
       ),
