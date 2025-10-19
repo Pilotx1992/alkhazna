@@ -484,7 +484,6 @@ class _HomeScreenState extends State<HomeScreen> {
   /// Check for backup and show restore dialog if available
   /// Temporarily disabled - will be re-implemented in Phase 2
   Future<void> _checkAndShowRestore(BuildContext context) async {
-    // TODO: Re-implement backup/restore functionality
   }
 
 }

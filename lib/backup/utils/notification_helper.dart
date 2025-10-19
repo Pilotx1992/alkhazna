@@ -363,7 +363,7 @@ class NotificationHelper {
     // Handle different notification actions
     switch (response.actionId) {
       case 'BACKUP_NOW':
-        // TODO: Trigger backup from notification
+    
         if (kDebugMode) {
           print('🔔 Backup now action triggered');
         }
