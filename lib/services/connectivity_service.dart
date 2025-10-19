@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 
@@ -9,19 +10,40 @@ class ConnectivityService {
 
   final Connectivity _connectivity = Connectivity();
 
-  /// Check if device has internet connection
+  /// Check if device has internet connection (with real internet check)
   Future<bool> isOnline() async {
     try {
+      // Step 1: Check if device has network interface
       final connectivityResult = await _connectivity.checkConnectivity();
-      final isConnected = connectivityResult.contains(ConnectivityResult.mobile) || 
-                         connectivityResult.contains(ConnectivityResult.wifi) ||
-                         connectivityResult.contains(ConnectivityResult.ethernet);
+      final hasNetworkInterface = connectivityResult.contains(ConnectivityResult.mobile) || 
+                                   connectivityResult.contains(ConnectivityResult.wifi) ||
+                                   connectivityResult.contains(ConnectivityResult.ethernet);
       
-      if (kDebugMode) {
-        print('🌐 Connectivity check: ${connectivityResult.join(', ')} -> ${isConnected ? 'Online' : 'Offline'}');
+      if (!hasNetworkInterface) {
+        if (kDebugMode) {
+          print('🌐 No network interface available');
+        }
+        return false;
       }
-      
-      return isConnected;
+
+      // Step 2: Check real internet connectivity with timeout
+      try {
+        final result = await InternetAddress.lookup('google.com')
+            .timeout(const Duration(seconds: 5));
+        
+        final isOnline = result.isNotEmpty && result[0].rawAddress.isNotEmpty;
+        
+        if (kDebugMode) {
+          print('🌐 Real internet check: ${isOnline ? 'Online' : 'Offline'}');
+        }
+        
+        return isOnline;
+      } catch (e) {
+        if (kDebugMode) {
+          print('🌐 Internet check failed: $e');
+        }
+        return false;
+      }
     } catch (e) {
       if (kDebugMode) {
         print('❌ Error checking connectivity: $e');

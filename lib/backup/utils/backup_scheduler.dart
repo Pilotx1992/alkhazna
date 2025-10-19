@@ -22,6 +22,7 @@ class BackupScheduler {
     try {
       await Workmanager().initialize(
         callbackDispatcher,
+        isInDebugMode: kDebugMode,
       );
 
       if (kDebugMode) {
@@ -31,6 +32,33 @@ class BackupScheduler {
       if (kDebugMode) {
         print('💥 Failed to initialize WorkManager: $e');
       }
+    }
+  }
+
+  /// Test auto-backup manually (for debugging)
+  static Future<bool> testAutoBackup() async {
+    try {
+      if (kDebugMode) {
+        print('🧪 Testing auto-backup manually...');
+      }
+
+      // Perform backup immediately
+      final success = await _performBackgroundBackup({
+        'frequency': 'test',
+        'scheduled_at': DateTime.now().toIso8601String(),
+        'is_oneplus': false,
+      });
+
+      if (kDebugMode) {
+        print('🧪 Auto-backup test result: ${success ? 'Success' : 'Failed'}');
+      }
+
+      return success;
+    } catch (e) {
+      if (kDebugMode) {
+        print('💥 Auto-backup test error: $e');
+      }
+      return false;
     }
   }
 
@@ -399,10 +427,12 @@ Future<bool> _performBackgroundBackup(Map<String, dynamic>? inputData) async {
     }
 
     // Initialize services
+    if (kDebugMode) print('📱 Initializing services...');
     final backupService = BackupService();
     final notificationHelper = NotificationHelper();
     
     // Initialize notifications
+    if (kDebugMode) print('📱 Initializing notifications...');
     await notificationHelper.initialize();
 
     // Listen to backup progress and update notifications
@@ -410,6 +440,9 @@ Future<bool> _performBackgroundBackup(Map<String, dynamic>? inputData) async {
       final progress = backupService.currentProgress;
       
       if (progress.backupStatus != null) {
+        if (kDebugMode) {
+          print('📱 Backup progress: ${progress.percentage}% - ${progress.currentAction}');
+        }
         notificationHelper.showBackupProgress(
           stage: progress.backupStatus!.name,
           percentage: progress.percentage,
@@ -419,6 +452,7 @@ Future<bool> _performBackgroundBackup(Map<String, dynamic>? inputData) async {
     });
 
     // Start backup
+    if (kDebugMode) print('📱 Starting backup process...');
     final success = await backupService.startBackup();
 
     if (success) {
