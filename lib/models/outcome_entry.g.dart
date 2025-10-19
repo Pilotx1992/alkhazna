@@ -21,13 +21,16 @@ class OutcomeEntryAdapter extends TypeAdapter<OutcomeEntry> {
       name: fields[1] as String,
       amount: fields[2] as double,
       date: fields[3] as DateTime,
+      createdAt: fields[4] as DateTime?,
+      updatedAt: fields[5] as DateTime?,
+      version: (fields[6] as int?) ?? 1, // Default to 1 for old data
     );
   }
 
   @override
   void write(BinaryWriter writer, OutcomeEntry obj) {
     writer
-      ..writeByte(4)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -35,7 +38,13 @@ class OutcomeEntryAdapter extends TypeAdapter<OutcomeEntry> {
       ..writeByte(2)
       ..write(obj.amount)
       ..writeByte(3)
-      ..write(obj.date);
+      ..write(obj.date)
+      ..writeByte(4)
+      ..write(obj.createdAt)
+      ..writeByte(5)
+      ..write(obj.updatedAt)
+      ..writeByte(6)
+      ..write(obj.version);
   }
 
   @override

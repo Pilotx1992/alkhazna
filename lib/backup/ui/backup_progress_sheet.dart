@@ -4,7 +4,11 @@ import 'package:percent_indicator/circular_percent_indicator.dart';
 import '../models/backup_status.dart';
 import '../models/restore_result.dart';
 import '../services/backup_service.dart';
+import '../services/safety_backup_service.dart';
 import '../utils/notification_helper.dart';
+import '../utils/haptic_feedback_helper.dart';
+import 'rollback_dialog.dart';
+import 'animated_success_dialog.dart';
 
 /// WhatsApp-style backup progress sheet
 class BackupProgressSheet extends StatefulWidget {
@@ -71,6 +75,10 @@ class _BackupProgressSheetState extends State<BackupProgressSheet> {
         if (_currentProgress.backupStatus == BackupStatus.completed &&
             _currentProgress.percentage == 100) {
           _hasCalledCallback = true;
+          
+          // ✨ NEW: Haptic feedback on backup complete
+          HapticFeedbackHelper.backupComplete();
+          
           // Give a small delay to ensure backup time is saved
           Future.delayed(const Duration(milliseconds: 500), () {
             if (widget.onBackupComplete != null) {
@@ -78,10 +86,25 @@ class _BackupProgressSheetState extends State<BackupProgressSheet> {
             }
             if (mounted) {
               Navigator.pop(context);
+              
+              // ✨ NEW: Show animated success dialog
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => AnimatedSuccessDialog(
+                  title: 'Backup Complete!',
+                  message: 'Your data has been backed up successfully.',
+                  onClose: () => Navigator.of(context).pop(),
+                ),
+              );
             }
           });
         } else if (_currentProgress.backupStatus == BackupStatus.failed) {
           _hasCalledCallback = true;
+          
+          // ✨ NEW: Haptic feedback on error
+          HapticFeedbackHelper.error();
+          
           if (mounted) {
             // Check if it's a Wi-Fi connection error
             if (_currentProgress.currentAction.contains('Wi-Fi connection required')) {
@@ -115,6 +138,9 @@ class _BackupProgressSheetState extends State<BackupProgressSheet> {
       _isOperationInProgress = true;
     });
 
+    // ✨ NEW: Haptic feedback on backup start
+    HapticFeedbackHelper.backupStart();
+
     try {
       // Just start the backup, don't handle completion here
       // Completion is handled through the progress listener
@@ -127,6 +153,9 @@ class _BackupProgressSheetState extends State<BackupProgressSheet> {
       if (kDebugMode) {
         print('🐛 DEBUG: Error starting backup: $e');
       }
+
+      // ✨ NEW: Haptic feedback on error
+      HapticFeedbackHelper.error();
 
       await _notificationHelper.showBackupComplete(
         success: false,
@@ -149,6 +178,17 @@ class _BackupProgressSheetState extends State<BackupProgressSheet> {
       _isOperationInProgress = true;
     });
 
+    // ✨ NEW: Haptic feedback on restore start
+    HapticFeedbackHelper.restoreStart();
+
+    // ✨ NEW: Get safety backup ID before restore
+    String? safetyBackupId;
+    try {
+      safetyBackupId = await SafetyBackupService().createPreRestoreBackup();
+    } catch (e) {
+      // Continue even if safety backup fails
+    }
+
     try {
       final result = await _backupService.startRestore();
       
@@ -160,17 +200,40 @@ class _BackupProgressSheetState extends State<BackupProgressSheet> {
 
       if (mounted) {
         if (result.success) {
+          // ✨ NEW: Haptic feedback on success
+          HapticFeedbackHelper.restoreComplete();
+          
           // Call the refresh callback to update the UI immediately
           if (widget.onRestoreComplete != null) {
             widget.onRestoreComplete!();
           }
-          // Close the progress sheet on success (notification already shown)
-          Navigator.of(context).pop();
+          
+          // ✨ NEW: Show animated success dialog
+          Navigator.of(context).pop(); // Close progress sheet
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => AnimatedSuccessDialog(
+              title: 'Restore Complete!',
+              message: result.summary,
+              onClose: () => Navigator.of(context).pop(),
+            ),
+          );
         } else {
-          _showErrorDialog(result.errorMessage ?? 'Restore failed. Please try again.');
+          // ✨ NEW: Haptic feedback on error
+          HapticFeedbackHelper.error();
+          
+          // ✨ NEW: Show rollback dialog instead of simple error dialog
+          await _showRollbackDialog(
+            result.errorMessage ?? 'Restore failed. Please try again.',
+            safetyBackupId,
+          );
         }
       }
     } catch (e) {
+      // ✨ NEW: Haptic feedback on error
+      HapticFeedbackHelper.error();
+      
       await _notificationHelper.showRestoreComplete(
         success: false,
         message: 'Restore failed',
@@ -178,7 +241,8 @@ class _BackupProgressSheetState extends State<BackupProgressSheet> {
       );
 
       if (mounted) {
-        _showErrorDialog('Restore failed: $e');
+        // ✨ NEW: Show rollback dialog instead of simple error dialog
+        await _showRollbackDialog('Restore failed: $e', safetyBackupId);
       }
     } finally {
       setState(() {
@@ -389,9 +453,8 @@ class _BackupProgressSheetState extends State<BackupProgressSheet> {
             onPressed: () async {
               Navigator.pop(context);
               await _backupService.cancelCurrentOperation();
-              if (mounted) {
-                Navigator.pop(context);
-              }
+              if (!mounted) return;
+              Navigator.pop(context);
             },
             child: const Text('Yes', style: TextStyle(color: Colors.red)),
           ),
@@ -423,6 +486,19 @@ class _BackupProgressSheetState extends State<BackupProgressSheet> {
           ),
         ],
       ),
+    );
+  }
+
+  /// ✨ NEW: Show rollback dialog when restore fails
+  Future<void> _showRollbackDialog(String errorMessage, String? safetyBackupId) async {
+    // Close the progress sheet first
+    Navigator.of(context).pop();
+
+    // Show rollback dialog
+    await RollbackDialog.show(
+      context,
+      errorMessage: errorMessage,
+      safetyBackupId: safetyBackupId,
     );
   }
 

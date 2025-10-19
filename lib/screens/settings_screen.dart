@@ -228,12 +228,17 @@ class SettingsScreen extends StatelessWidget {
   }
 
   // ---------------- Security Section ----------------
-  Widget _buildSecuritySection(Color surfaceCard, Color sectionTitleColor, securityService, context) {
+  Widget _buildSecuritySection(Color surfaceCard, Color sectionTitleColor, SecurityService securityService, BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isPinEnabled = securityService.isPinEnabled;
+    final isBiometricEnabled = securityService.isBiometricEnabled;
+    final autoLockTimeout = securityService.autoLockTimeout;
+    final sessionDuration = securityService.sessionDuration;
 
     Widget row({
       required IconData icon,
       required String title,
+      String? subtitle,
       required Widget trailing,
       bool topDivider = false,
     }) {
@@ -247,16 +252,31 @@ class SettingsScreen extends StatelessWidget {
                 Icon(icon, color: sectionTitleColor.withValues(alpha: 0.8)),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(color: sectionTitleColor, fontWeight: FontWeight.w600),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(color: sectionTitleColor, fontWeight: FontWeight.w600),
+                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            color: sectionTitleColor.withValues(alpha: 0.6),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
                 trailing,
-                        ],
-                      ),
-                    ),
-                  ],
+              ],
+            ),
+          ),
+        ],
       );
     }
 
@@ -267,74 +287,78 @@ class SettingsScreen extends StatelessWidget {
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 18, offset: const Offset(0, 10))],
       ),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-              child: Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+        children: [
           Text('Security & Privacy', style: TextStyle(color: sectionTitleColor, fontSize: 16, fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),
+
+          // PIN Lock Toggle
           row(
             icon: Icons.lock,
             title: 'App Lock (PIN)',
+            subtitle: isPinEnabled ? 'Secure app with 4-digit PIN' : 'Disabled',
             trailing: Switch.adaptive(
-                      value: securityService.isPinEnabled,
-                      onChanged: (value) async {
-                        if (value) {
-                  // Enable PIN
-                          final result = await Navigator.push(
-                            context,
+              value: isPinEnabled,
+              onChanged: (value) async {
+                if (value) {
+                  final result = await Navigator.push(
+                    context,
                     MaterialPageRoute(builder: (context) => const SetupPinScreen()),
-                          );
-                          if (result == true && context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
+                  );
+                  if (result == true && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('PIN protection enabled!'), backgroundColor: Colors.green),
-                            );
-                          }
-                        } else {
-                  // Disable PIN
-                          final verified = await Navigator.push<bool>(
-                            context,
+                    );
+                  }
+                } else {
+                  final verified = await Navigator.push<bool>(
+                    context,
                     MaterialPageRoute(builder: (context) => const VerifyPinScreen(title: 'Verify PIN to Disable')),
-                          );
-                          if (verified == true && context.mounted) {
-                            await securityService.deletePin();
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
+                  );
+                  if (verified == true && context.mounted) {
+                    await securityService.deletePin();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('PIN protection disabled'), backgroundColor: Colors.orange),
-                              );
-                            }
-                          }
-                        }
-                      },
+                      );
+                    }
+                  }
+                }
+              },
               activeThumbColor: cs.primary,
             ),
           ),
-          if (securityService.isPinEnabled) ...[
+
+          if (isPinEnabled) ...[
+            // Biometric Unlock
             row(
               icon: Icons.fingerprint,
               title: 'Biometric Unlock',
+              subtitle: isBiometricEnabled ? 'Use fingerprint for quick access' : 'Disabled',
               topDivider: true,
               trailing: Switch.adaptive(
-                      value: securityService.isBiometricEnabled,
+                value: isBiometricEnabled,
                 onChanged: (value) async {
-                              try {
-                                if (value) {
-                                  await securityService.enableBiometric();
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
+                  try {
+                    if (value) {
+                      await securityService.enableBiometric();
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Biometric unlock enabled!'), backgroundColor: Colors.green),
-                                    );
-                                  }
-                                } else {
-                                  await securityService.disableBiometric();
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
+                        );
+                      }
+                    } else {
+                      await securityService.disableBiometric();
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Biometric unlock disabled'), backgroundColor: Colors.orange),
-                                    );
-                                  }
-                                }
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
+                        );
+                      }
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
                       );
                     }
@@ -343,6 +367,8 @@ class SettingsScreen extends StatelessWidget {
                 activeThumbColor: cs.primary,
               ),
             ),
+
+            // Change PIN
             row(
               icon: Icons.pin,
               title: 'Change PIN',
@@ -371,9 +397,307 @@ class SettingsScreen extends StatelessWidget {
                 ),
               ),
             ),
-                  ],
-                ],
+
+            // Section divider
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Divider(height: 1, thickness: 2, color: sectionTitleColor.withValues(alpha: 0.2)),
+            ),
+
+            // Auto-Lock Settings Header
+            Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 6),
+              child: Text(
+                'AUTO-LOCK SETTINGS',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: sectionTitleColor.withValues(alpha: 0.6),
+                  letterSpacing: 1.2,
+                ),
               ),
+            ),
+
+            // Auto-Lock Timer
+            row(
+              icon: Icons.timer,
+              title: 'Auto-Lock Timer',
+              subtitle: _getAutoLockDescription(autoLockTimeout),
+              trailing: InkWell(
+                onTap: () => _showAutoLockDialog(context, securityService, sectionTitleColor, cs),
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _getAutoLockShort(autoLockTimeout),
+                        style: TextStyle(color: sectionTitleColor.withValues(alpha: 0.75)),
+                      ),
+                      const SizedBox(width: 6),
+                      Icon(Icons.chevron_right, color: sectionTitleColor, size: 16),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // Session Duration
+            row(
+              icon: Icons.schedule,
+              title: 'Session Duration',
+              subtitle: 'Stay unlocked for $sessionDuration min',
+              topDivider: true,
+              trailing: InkWell(
+                onTap: () => _showSessionDurationDialog(context, securityService, sectionTitleColor, cs),
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '$sessionDuration min',
+                        style: TextStyle(color: sectionTitleColor.withValues(alpha: 0.75)),
+                      ),
+                      const SizedBox(width: 6),
+                      Icon(Icons.chevron_right, color: sectionTitleColor, size: 16),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // Section divider
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Divider(height: 1, thickness: 2, color: sectionTitleColor.withValues(alpha: 0.2)),
+            ),
+
+            // Quick Actions Header
+            Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 12),
+              child: Text(
+                'QUICK ACTIONS',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: sectionTitleColor.withValues(alpha: 0.6),
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+
+            // Lock Now Button
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  await securityService.lockNow();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('🔒 App locked'),
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.lock, size: 20),
+                label: const Text(
+                  'LOCK NOW',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _getAutoLockDescription(int seconds) {
+    if (seconds == 0) return 'Lock immediately';
+    if (seconds == 30) return 'Lock after 30 seconds';
+    if (seconds == 60) return 'Lock after 1 minute';
+    if (seconds == 300) return 'Lock after 5 minutes';
+    if (seconds < 0 || seconds > 3600) return 'Never auto-lock';
+    return 'Lock after $seconds seconds';
+  }
+
+  String _getAutoLockShort(int seconds) {
+    if (seconds == 0) return 'Immediate';
+    if (seconds == 30) return '30 sec';
+    if (seconds == 60) return '1 min';
+    if (seconds == 300) return '5 min';
+    if (seconds < 0 || seconds > 3600) return 'Never';
+    return '${seconds}s';
+  }
+
+  Future<void> _showAutoLockDialog(
+    BuildContext context,
+    SecurityService securityService,
+    Color sectionTitleColor,
+    ColorScheme cs,
+  ) async {
+    final currentValue = securityService.autoLockTimeout;
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Auto-Lock Timer'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RadioListTile<int>(
+              title: const Text('Immediate'),
+              subtitle: const Text('Lock right away'),
+              value: 0,
+              groupValue: currentValue,
+              activeColor: cs.primary,
+              onChanged: (value) {
+                securityService.setAutoLockTimeout(value!);
+                Navigator.pop(context);
+              },
+            ),
+            RadioListTile<int>(
+              title: const Text('30 seconds'),
+              subtitle: const Text('For quick task switching'),
+              value: 30,
+              groupValue: currentValue,
+              activeColor: cs.primary,
+              onChanged: (value) {
+                securityService.setAutoLockTimeout(value!);
+                Navigator.pop(context);
+              },
+            ),
+            RadioListTile<int>(
+              title: const Text('1 minute'),
+              subtitle: const Text('For moderate multitasking'),
+              value: 60,
+              groupValue: currentValue,
+              activeColor: cs.primary,
+              onChanged: (value) {
+                securityService.setAutoLockTimeout(value!);
+                Navigator.pop(context);
+              },
+            ),
+            RadioListTile<int>(
+              title: const Text('5 minutes'),
+              subtitle: const Text('For active usage'),
+              value: 300,
+              groupValue: currentValue,
+              activeColor: cs.primary,
+              onChanged: (value) {
+                securityService.setAutoLockTimeout(value!);
+                Navigator.pop(context);
+              },
+            ),
+            RadioListTile<int>(
+              title: const Text('Never'),
+              subtitle: const Text('Disable auto-lock'),
+              value: -1,
+              groupValue: currentValue,
+              activeColor: cs.primary,
+              onChanged: (value) {
+                securityService.setAutoLockTimeout(value!);
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CANCEL'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showSessionDurationDialog(
+    BuildContext context,
+    SecurityService securityService,
+    Color sectionTitleColor,
+    ColorScheme cs,
+  ) async {
+    final currentValue = securityService.sessionDuration;
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Session Duration'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RadioListTile<int>(
+              title: const Text('5 minutes'),
+              subtitle: const Text('Short sessions'),
+              value: 5,
+              groupValue: currentValue,
+              activeColor: cs.primary,
+              onChanged: (value) {
+                securityService.setSessionDuration(value!);
+                Navigator.pop(context);
+              },
+            ),
+            RadioListTile<int>(
+              title: const Text('15 minutes'),
+              subtitle: const Text('Balanced (recommended)'),
+              value: 15,
+              groupValue: currentValue,
+              activeColor: cs.primary,
+              onChanged: (value) {
+                securityService.setSessionDuration(value!);
+                Navigator.pop(context);
+              },
+            ),
+            RadioListTile<int>(
+              title: const Text('30 minutes'),
+              subtitle: const Text('Extended work'),
+              value: 30,
+              groupValue: currentValue,
+              activeColor: cs.primary,
+              onChanged: (value) {
+                securityService.setSessionDuration(value!);
+                Navigator.pop(context);
+              },
+            ),
+            RadioListTile<int>(
+              title: const Text('1 hour'),
+              subtitle: const Text('Long tasks'),
+              value: 60,
+              groupValue: currentValue,
+              activeColor: cs.primary,
+              onChanged: (value) {
+                securityService.setSessionDuration(value!);
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CANCEL'),
+          ),
+        ],
+      ),
     );
   }
 

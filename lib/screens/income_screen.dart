@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
+
 import '../models/income_entry.dart';
 import '../services/storage_service.dart';
 import '../services/pdf_service.dart';
@@ -22,6 +24,7 @@ class IncomeScreen extends StatefulWidget {
 class _IncomeScreenState extends State<IncomeScreen> {
   final StorageService _storageService = StorageService();
   final ScrollController _scrollController = ScrollController();
+  final Uuid _uuid = const Uuid();
   List<IncomeEntry> _incomeEntries = [];
   double _totalAmount = 0.0;
 
@@ -39,7 +42,6 @@ class _IncomeScreenState extends State<IncomeScreen> {
       _calculateTotal();
     });
   }
-
 
   Future<void> _saveEntries() async {
     try {
@@ -88,10 +90,9 @@ class _IncomeScreenState extends State<IncomeScreen> {
     }
   }
 
-
   void _addNewEntry() {
     final newEntry = IncomeEntry(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      id: 'inc_${_uuid.v4()}',
       name: '',
       amount: 0,
       date: DateTime(widget.year, _getMonthNumber(widget.month), 1),
@@ -123,7 +124,7 @@ class _IncomeScreenState extends State<IncomeScreen> {
         _incomeEntries.removeAt(index);
       });
       _saveEntries();
-      
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -145,7 +146,7 @@ class _IncomeScreenState extends State<IncomeScreen> {
 
   void _insertNewEntryAt(int index) {
     final newEntry = IncomeEntry(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      id: 'inc_${_uuid.v4()}',
       name: '',
       amount: 0,
       date: DateTime(widget.year, _getMonthNumber(widget.month), 1),
@@ -209,8 +210,7 @@ class _IncomeScreenState extends State<IncomeScreen> {
           // Create new entries based on previous month data
           for (int i = 0; i < prevEntries.length; i++) {
             final newEntry = IncomeEntry(
-              id: DateTime.now().microsecondsSinceEpoch.toString() +
-                  i.toString(),
+              id: 'inc_${_uuid.v4()}',
               name: prevEntries[i].name,
               amount: 0, // Copy names only, not amounts
               date: DateTime(widget.year, _getMonthNumber(widget.month), 1),
@@ -221,8 +221,7 @@ class _IncomeScreenState extends State<IncomeScreen> {
           // Add at least 1 extra empty rows for new entries
           for (int i = 0; i < 1; i++) {
             final newEntry = IncomeEntry(
-              id: DateTime.now().microsecondsSinceEpoch.toString() +
-                  (prevEntries.length + i).toString(),
+              id: 'inc_${_uuid.v4()}',
               name: '',
               amount: 0,
               date: DateTime(widget.year, _getMonthNumber(widget.month), 1),
@@ -509,8 +508,7 @@ class _IncomeScreenState extends State<IncomeScreen> {
             builder: (BuildContext context) {
               return AlertDialog(
                 title: const Text('Confirm Delete'),
-                content:
-                    const Text('Sure To Delete?'),
+                content: const Text('Sure To Delete?'),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(false),
@@ -562,9 +560,18 @@ class _IncomeScreenState extends State<IncomeScreen> {
 
   int _getMonthNumber(String monthName) {
     const monthMap = {
-      'January': 1, 'February': 2, 'March': 3, 'April': 4,
-      'May': 5, 'June': 6, 'July': 7, 'August': 8,
-      'September': 9, 'October': 10, 'November': 11, 'December': 12
+      'January': 1,
+      'February': 2,
+      'March': 3,
+      'April': 4,
+      'May': 5,
+      'June': 6,
+      'July': 7,
+      'August': 8,
+      'September': 9,
+      'October': 10,
+      'November': 11,
+      'December': 12
     };
     return monthMap[monthName] ?? 1;
   }

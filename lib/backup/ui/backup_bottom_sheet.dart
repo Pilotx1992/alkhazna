@@ -227,27 +227,113 @@ class _BackupBottomSheetState extends State<BackupBottomSheet> {
   }
 
   Future<void> _handleRestore() async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('⚠️ Restore Backup'),
+        content: const Text(
+          'This will replace all current data with the backup data.\n\n'
+          'Are you sure you want to continue?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Restore'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
     try {
       final backupService = context.read<BackupService>();
-      
+
       // Check connectivity first
       final isOnline = await _connectivityService.isOnline();
+      if (!mounted) return;
+
       if (!isOnline) {
         _showSnackBar('No internet connection. Please check your network and try again.');
         return;
       }
 
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: Card(
+            child: Padding(
+              padding: EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Restoring data...'),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
       // Start restore
       final result = await backupService.startRestore();
-      
+
+      // Close loading dialog
+      if (!mounted) return;
+      Navigator.pop(context);
+
       if (result.success) {
         _showSnackBar('✅ Restore completed successfully!');
+
+        // Small delay to show the success message
+        await Future.delayed(const Duration(milliseconds: 500));
+
+        if (!mounted) return;
+
+        // Close bottom sheet first
         Navigator.pop(context);
+
+        // Pop all routes to go back to home screen
+        // The HomeScreen will reload data in its didChangeDependencies
+        while (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+
+        // Trigger rebuild by calling setState on a parent if possible
+        // Or show a snackbar to indicate data has been restored
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('📥 Data restored! Please pull to refresh or reopen the app.'),
+              duration: Duration(seconds: 3),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       } else {
         _showSnackBar('❌ Restore failed: ${result.errorMessage}');
       }
     } catch (e) {
-      _showSnackBar('❌ Restore failed: ${e.toString()}');
+      // Close loading dialog if it's still open
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+      if (mounted) {
+        _showSnackBar('❌ Restore failed: ${e.toString()}');
+      }
     }
   }
 

@@ -24,13 +24,16 @@ class SecuritySettingsAdapter extends TypeAdapter<SecuritySettings> {
       lastUnlockedAt: fields[4] as DateTime?,
       pinSalt: fields[5] as String?,
       autoLockTimeout: fields[6] as int?,
+      sessionStartTime: fields[7] as DateTime?,
+      lastInteractionTime: fields[8] as DateTime?,
+      sessionDuration: fields[9] as int?,
     );
   }
 
   @override
   void write(BinaryWriter writer, SecuritySettings obj) {
     writer
-      ..writeByte(7)
+      ..writeByte(10)
       ..writeByte(0)
       ..write(obj.isPinEnabled)
       ..writeByte(1)
@@ -44,7 +47,13 @@ class SecuritySettingsAdapter extends TypeAdapter<SecuritySettings> {
       ..writeByte(5)
       ..write(obj.pinSalt)
       ..writeByte(6)
-      ..write(obj.autoLockTimeout);
+      ..write(obj.autoLockTimeout)
+      ..writeByte(7)
+      ..write(obj.sessionStartTime)
+      ..writeByte(8)
+      ..write(obj.lastInteractionTime)
+      ..writeByte(9)
+      ..write(obj.sessionDuration);
   }
 
   @override

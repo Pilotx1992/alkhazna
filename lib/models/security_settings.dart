@@ -35,6 +35,19 @@ class SecuritySettings extends HiveObject {
   @HiveField(6)
   int? autoLockTimeout;
 
+  /// Session start timestamp (when user last unlocked)
+  @HiveField(7)
+  DateTime? sessionStartTime;
+
+  /// Last user interaction timestamp (tap, scroll, etc.)
+  @HiveField(8)
+  DateTime? lastInteractionTime;
+
+  /// Session duration in minutes (default: 15)
+  /// How long to keep session active without interaction
+  @HiveField(9)
+  int? sessionDuration;
+
   SecuritySettings({
     required this.isPinEnabled,
     required this.isBiometricEnabled,
@@ -42,7 +55,10 @@ class SecuritySettings extends HiveObject {
     this.lockoutUntil,
     this.lastUnlockedAt,
     this.pinSalt,
-    this.autoLockTimeout = 0, // Default: immediate lock on background
+    this.autoLockTimeout, // Nullable for backward compatibility
+    this.sessionStartTime,
+    this.lastInteractionTime,
+    this.sessionDuration, // Nullable for backward compatibility
   });
 
   /// Factory constructor for initial settings
@@ -51,7 +67,8 @@ class SecuritySettings extends HiveObject {
       isPinEnabled: false,
       isBiometricEnabled: false,
       failedAttempts: 0,
-      autoLockTimeout: 0, // Immediate lock by default
+      autoLockTimeout: 30, // 30 seconds default
+      sessionDuration: 15, // 15 minutes default
     );
   }
 
@@ -64,15 +81,21 @@ class SecuritySettings extends HiveObject {
     DateTime? lastUnlockedAt,
     String? pinSalt,
     int? autoLockTimeout,
+    DateTime? sessionStartTime,
+    DateTime? lastInteractionTime,
+    int? sessionDuration,
   }) {
     return SecuritySettings(
       isPinEnabled: isPinEnabled ?? this.isPinEnabled,
       isBiometricEnabled: isBiometricEnabled ?? this.isBiometricEnabled,
       failedAttempts: failedAttempts ?? this.failedAttempts,
-      lockoutUntil: lockoutUntil ?? this.lockoutUntil,
-      lastUnlockedAt: lastUnlockedAt ?? this.lastUnlockedAt,
-      pinSalt: pinSalt ?? this.pinSalt,
+      lockoutUntil: lockoutUntil,
+      lastUnlockedAt: lastUnlockedAt,
+      pinSalt: pinSalt,
       autoLockTimeout: autoLockTimeout ?? this.autoLockTimeout,
+      sessionStartTime: sessionStartTime,
+      lastInteractionTime: lastInteractionTime,
+      sessionDuration: sessionDuration ?? this.sessionDuration,
     );
   }
 
@@ -85,6 +108,9 @@ class SecuritySettings extends HiveObject {
         'lockoutUntil: $lockoutUntil, '
         'lastUnlockedAt: $lastUnlockedAt, '
         'hasSalt: ${pinSalt != null}, '
-        'autoLockTimeout: $autoLockTimeout)';
+        'autoLockTimeout: $autoLockTimeout, '
+        'sessionStartTime: $sessionStartTime, '
+        'lastInteractionTime: $lastInteractionTime, '
+        'sessionDuration: $sessionDuration)';
   }
 }

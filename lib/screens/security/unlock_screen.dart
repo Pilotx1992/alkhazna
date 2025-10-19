@@ -173,6 +173,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
   Widget build(BuildContext context) {
     final securityService = context.watch<SecurityService>();
     final isLockedOut = securityService.isLockedOut;
+    final biometricEnabled = securityService.isBiometricEnabled;
 
     return PopScope(
       canPop: false, // Prevent back navigation when locked
@@ -184,17 +185,17 @@ class _UnlockScreenState extends State<UnlockScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // App Logo
+                // App Logo (smaller)
                 Container(
-                  width: 80,
-                  height: 80,
+                  width: 60,
+                  height: 60,
                   decoration: BoxDecoration(
                     color: Colors.indigo.shade50,
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     Icons.account_balance_wallet_outlined,
-                    size: 48,
+                    size: 32,
                     color: Colors.indigo,
                   ),
                 ),
@@ -203,13 +204,38 @@ class _UnlockScreenState extends State<UnlockScreen> {
 
                 Text(
                   'Al Khazna',
-                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: Colors.indigo,
                       ),
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 32),
+
+                // BIOMETRIC FIRST - Large Prominent
+                if (biometricEnabled && !isLockedOut) ...[
+                  _buildBiometricSection(),
+                  const SizedBox(height: 32),
+
+                  // Divider
+                  Row(
+                    children: [
+                      Expanded(child: Divider(color: Colors.grey[400])),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          'or use PIN',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                      Expanded(child: Divider(color: Colors.grey[400])),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                ],
 
                 // Lockout message
                 if (isLockedOut) ...[
@@ -247,24 +273,101 @@ class _UnlockScreenState extends State<UnlockScreen> {
                   const SizedBox(height: 24),
                 ],
 
-                // PIN Input
+                // PIN Input (smaller, less prominent)
                 PinInputWidget(
                   key: _pinKey,
-                  title: isLockedOut ? 'Locked' : 'Enter your PIN',
+                  title: isLockedOut ? 'Locked' : 'Enter PIN',
                   subtitle: isLockedOut
                       ? 'Wait for lockout to end'
-                      : 'Unlock to access your data',
+                      : biometricEnabled
+                          ? 'As an alternative to biometric'
+                          : 'Unlock to access your data',
                   onPinComplete: _onPinComplete,
                   errorMessage: _errorMessage,
                   isLoading: _isLoading || isLockedOut,
-                  showBiometricButton: true, // Always show for UI consistency
-                  onBiometricTap: _onBiometricTap,
+                  showBiometricButton: false, // Hide old biometric button
                 ),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildBiometricSection() {
+    return Column(
+      children: [
+        // Large pulsing biometric icon
+        TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0.95, end: 1.05),
+          duration: const Duration(milliseconds: 1500),
+          curve: Curves.easeInOut,
+          builder: (context, scale, child) {
+            return Transform.scale(
+              scale: scale,
+              child: child,
+            );
+          },
+          onEnd: () {
+            // Restart animation
+            if (mounted) {
+              setState(() {});
+            }
+          },
+          child: Container(
+            width: 120,
+            height: 120,
+            decoration: BoxDecoration(
+              color: Colors.indigo.shade50,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.indigo,
+                width: 3,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.indigo.withAlpha((0.3 * 255).round()),
+                  blurRadius: 20,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: InkWell(
+              onTap: _isLoading ? null : _onBiometricTap,
+              customBorder: const CircleBorder(),
+              child: Icon(
+                Icons.fingerprint,
+                size: 64,
+                color: Colors.indigo,
+              ),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // Quick Unlock text
+        Text(
+          'Touch for Quick Unlock',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: Colors.indigo,
+          ),
+        ),
+
+        const SizedBox(height: 4),
+
+        // Subtitle
+        Text(
+          'Faster and more secure',
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.grey[600],
+          ),
+        ),
+      ],
     );
   }
 }

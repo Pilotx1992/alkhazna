@@ -460,17 +460,22 @@ class _HomeScreenState extends State<HomeScreen> {
             IconButton(
               icon: const Icon(Icons.settings),
               tooltip: 'Settings',
-              onPressed: () {
-                Navigator.push(
+              onPressed: () async {
+                await Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const SettingsScreen()),
                 );
+                // Reload data when returning from settings (in case restore was done)
+                _loadTotals();
               },
             ),
             const SizedBox(width: 8),
           ],
         ),
-        body: bodyContent,
+        body: RefreshIndicator(
+          onRefresh: _loadTotals,
+          child: bodyContent,
+        ),
       ),
     );
   }

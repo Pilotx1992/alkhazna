@@ -8,13 +8,18 @@ import '../../models/outcome_entry.dart';
 import '../models/backup_metadata.dart';
 import '../models/backup_status.dart';
 import '../models/restore_result.dart';
+import '../models/merge_result.dart';
 import 'key_manager.dart';
 import 'encryption_service.dart';
 import 'google_drive_service.dart';
+import 'legacy_decryption_service.dart';
+import 'smart_merge_service.dart';
+import 'safety_backup_service.dart';
 import '../utils/backup_scheduler.dart';
 import '../../services/drive_auth_service.dart';
 import '../../services/connectivity_service.dart';
 import '../../services/hive_snapshot_service.dart';
+import '../../utils/app_logger.dart';
 
 /// Main backup service for WhatsApp-style backup system
 class BackupService extends ChangeNotifier {
@@ -28,6 +33,10 @@ class BackupService extends ChangeNotifier {
   final DriveAuthService _driveAuthService = DriveAuthService();
   final ConnectivityService _connectivityService = ConnectivityService();
   final HiveSnapshotService _snapshotService = HiveSnapshotService();
+  final LegacyDecryptionService _legacyDecryption = LegacyDecryptionService();
+  final SmartMergeService _mergeService = SmartMergeService();
+  final SafetyBackupService _safetyBackupService = SafetyBackupService();
+  final _logger = AppLogger.instance;
 
   OperationProgress _currentProgress = const OperationProgress(
     percentage: 0,
@@ -35,12 +44,15 @@ class BackupService extends ChangeNotifier {
     currentAction: 'Ready',
   );
 
+  MergeResult? _lastMergeResult;
+
   bool _isBackupInProgress = false;
   bool _isRestoreInProgress = false;
 
   OperationProgress get currentProgress => _currentProgress;
   bool get isBackupInProgress => _isBackupInProgress;
   bool get isRestoreInProgress => _isRestoreInProgress;
+  MergeResult? get lastMergeResult => _lastMergeResult;
 
   static const String _backupPrefix = 'alkhazna_backup_';
 
@@ -72,14 +84,17 @@ class BackupService extends ChangeNotifier {
 
       // Step 2: Silent authentication and initialize Drive with same session
       _updateProgress(10, BackupStatus.preparing, 'Signing in...');
-      final authHeaders = await _driveAuthService.getAuthHeaders(interactiveFallback: true);
+      final authHeaders =
+          await _driveAuthService.getAuthHeaders(interactiveFallback: true);
       if (authHeaders == null) {
         _updateProgress(0, BackupStatus.failed, 'Sign-in failed');
         return false;
       }
-      final driveReady = await _driveService.initialize(authHeaders: authHeaders);
+      final driveReady =
+          await _driveService.initialize(authHeaders: authHeaders);
       if (!driveReady) {
-        _updateProgress(0, BackupStatus.failed, 'Failed to connect to Google Drive');
+        _updateProgress(
+            0, BackupStatus.failed, 'Failed to connect to Google Drive');
         return false;
       }
 
@@ -112,9 +127,11 @@ class BackupService extends ChangeNotifier {
       }
 
       // Step 6: Upload to Drive
-      _updateProgress(70, BackupStatus.uploading, 'Uploading to Google Drive...');
+      _updateProgress(
+          70, BackupStatus.uploading, 'Uploading to Google Drive...');
       final encryptedBytes = utf8.encode(json.encode(encryptedData));
-      final fileName = '$_backupPrefix${DateTime.now().millisecondsSinceEpoch}.crypt14';
+      final fileName =
+          '$_backupPrefix${DateTime.now().millisecondsSinceEpoch}.crypt14';
       final driveFileId = await _driveService.uploadFile(
         fileName: fileName,
         content: Uint8List.fromList(encryptedBytes),
@@ -139,7 +156,8 @@ class BackupService extends ChangeNotifier {
         encryptedSize: encryptedBytes.length,
       );
 
-      _updateProgress(100, BackupStatus.completed, 'Backup completed successfully!');
+      _updateProgress(
+          100, BackupStatus.completed, 'Backup completed successfully!');
 
       // Update last backup time only after successful backup
       await BackupScheduler.updateLastBackupTime();
@@ -156,7 +174,6 @@ class BackupService extends ChangeNotifier {
       _verifyBackupSilently(backupId, driveFileId);
 
       return true;
-
     } catch (e) {
       if (kDebugMode) {
         print('? Backup failed: $e');
@@ -195,11 +212,15 @@ class BackupService extends ChangeNotifier {
       }
 
       // Step 2: Initialize Drive service using unified auth
-      _updateProgress(10, BackupStatus.preparing, 'Connecting to Google Drive...');
-      final legacyHeaders = await _driveAuthService.getAuthHeaders(interactiveFallback: true);
-      final driveInitialized = legacyHeaders != null && await _driveService.initialize(authHeaders: legacyHeaders);
+      _updateProgress(
+          10, BackupStatus.preparing, 'Connecting to Google Drive...');
+      final legacyHeaders =
+          await _driveAuthService.getAuthHeaders(interactiveFallback: true);
+      final driveInitialized = legacyHeaders != null &&
+          await _driveService.initialize(authHeaders: legacyHeaders);
       if (!driveInitialized) {
-        _updateProgress(0, BackupStatus.failed, 'Failed to connect to Google Drive');
+        _updateProgress(
+            0, BackupStatus.failed, 'Failed to connect to Google Drive');
         return false;
       }
 
@@ -217,7 +238,8 @@ class BackupService extends ChangeNotifier {
       _updateProgress(30, BackupStatus.preparing, 'Preparing your data...');
       final databaseBytes = await _createDatabaseBackup();
       if (databaseBytes == null) {
-        _updateProgress(0, BackupStatus.failed, 'Failed to create database backup');
+        _updateProgress(
+            0, BackupStatus.failed, 'Failed to create database backup');
         return false;
       }
 
@@ -236,9 +258,11 @@ class BackupService extends ChangeNotifier {
       }
 
       // Step 6: Upload to Drive
-      _updateProgress(70, BackupStatus.uploading, 'Uploading to Google Drive...');
+      _updateProgress(
+          70, BackupStatus.uploading, 'Uploading to Google Drive...');
       final encryptedBytes = utf8.encode(json.encode(encryptedData));
-      final fileName = '$_backupPrefix${DateTime.now().millisecondsSinceEpoch}.crypt14';
+      final fileName =
+          '$_backupPrefix${DateTime.now().millisecondsSinceEpoch}.crypt14';
       final driveFileId = await _driveService.uploadFile(
         fileName: fileName,
         content: Uint8List.fromList(encryptedBytes),
@@ -263,7 +287,8 @@ class BackupService extends ChangeNotifier {
         encryptedSize: encryptedBytes.length,
       );
 
-      _updateProgress(100, BackupStatus.completed, 'Backup completed successfully!');
+      _updateProgress(
+          100, BackupStatus.completed, 'Backup completed successfully!');
 
       // Update last backup time only after successful backup
       await BackupScheduler.updateLastBackupTime();
@@ -280,7 +305,6 @@ class BackupService extends ChangeNotifier {
       _verifyBackupSilently(backupId, driveFileId);
 
       return true;
-
     } catch (e) {
       if (kDebugMode) {
         print('💥 Backup failed: $e');
@@ -299,36 +323,58 @@ class BackupService extends ChangeNotifier {
     }
 
     _isRestoreInProgress = true;
+    String? safetyBackupId;
 
     try {
-      _updateProgress(0, null, 'Checking for backup...', RestoreStatus.downloading);
+      _updateProgress(
+          0, null, 'Checking for backup...', RestoreStatus.downloading);
+
+      // ✨ NEW: Create safety backup BEFORE restore (using SafetyBackupService)
+      _updateProgress(
+          5, null, 'Creating safety backup...', RestoreStatus.applying);
+      try {
+        safetyBackupId = await _safetyBackupService.createPreRestoreBackup();
+        _logger.i('[Restore] Safety backup created: $safetyBackupId');
+      } catch (e, st) {
+        _logger.w('[Restore] Safety backup failed: $e');
+        _logger.d(st.toString());
+        // Continue even if safety backup fails - user will be warned
+      }
 
       // Step 1: Check connectivity
       final isConnected = await _checkConnectivity();
       if (!isConnected) {
-        _updateProgress(0, null, 'No internet connection', RestoreStatus.failed);
+        _updateProgress(
+            0, null, 'No internet connection', RestoreStatus.failed);
         return RestoreResult.failure('No internet connection');
       }
 
       // Step 2: Initialize Drive service with same auth session
-      _updateProgress(10, null, 'Connecting to Google Drive...', RestoreStatus.downloading);
-      final restoreHeaders = await _driveAuthService.getAuthHeaders(interactiveFallback: true);
-      final driveInitialized = restoreHeaders != null && await _driveService.initialize(authHeaders: restoreHeaders);
+      _updateProgress(
+          10, null, 'Connecting to Google Drive...', RestoreStatus.downloading);
+      final restoreHeaders =
+          await _driveAuthService.getAuthHeaders(interactiveFallback: true);
+      final driveInitialized = restoreHeaders != null &&
+          await _driveService.initialize(authHeaders: restoreHeaders);
       if (!driveInitialized) {
-        _updateProgress(0, null, 'Failed to connect to Google Drive', RestoreStatus.failed);
+        _updateProgress(
+            0, null, 'Failed to connect to Google Drive', RestoreStatus.failed);
         return RestoreResult.failure('Failed to connect to Google Drive');
       }
 
       // Step 3: Find backup file (exclude key files)
-      _updateProgress(20, null, 'Looking for backup...', RestoreStatus.downloading);
-      final allFiles = await _driveService.listFiles(query: "name contains '$_backupPrefix'");
+      _updateProgress(
+          20, null, 'Looking for backup...', RestoreStatus.downloading);
+      final allFiles = await _driveService.listFiles(
+          query: "name contains '$_backupPrefix'");
 
       // Filter out the key file and only keep .crypt14 backup files
-      final backupFiles = allFiles.where((file) =>
-        file.name != null &&
-        file.name!.endsWith('.crypt14') &&
-        !file.name!.contains('keys')
-      ).toList();
+      final backupFiles = allFiles
+          .where((file) =>
+              file.name != null &&
+              file.name!.endsWith('.crypt14') &&
+              !file.name!.contains('keys'))
+          .toList();
 
       if (backupFiles.isEmpty) {
         _updateProgress(0, null, 'No backup found', RestoreStatus.failed);
@@ -336,62 +382,88 @@ class BackupService extends ChangeNotifier {
       }
 
       if (kDebugMode) {
-        print('[BackupService] Found ${backupFiles.length} backup files (excluded key files)');
+        print(
+            '[BackupService] Found ${backupFiles.length} backup files (excluded key files)');
         for (final file in backupFiles) {
           print('[BackupService]   - ${file.name} (${file.id})');
         }
       }
 
       // Step 4: Download most recent backup (first in list, already sorted by modifiedTime desc)
-      _updateProgress(40, null, 'Downloading backup...', RestoreStatus.downloading);
+      _updateProgress(
+          40, null, 'Downloading backup...', RestoreStatus.downloading);
       final backupFile = backupFiles.first;
 
       if (kDebugMode) {
-        print('[BackupService] Downloading backup: ${backupFile.name} (${backupFile.id})');
+        print(
+            '[BackupService] Downloading backup: ${backupFile.name} (${backupFile.id})');
       }
       final encryptedBytes = await _driveService.downloadFile(backupFile.id!);
-      
+
       if (encryptedBytes == null) {
-        _updateProgress(0, null, 'Failed to download backup', RestoreStatus.failed);
+        _updateProgress(
+            0, null, 'Failed to download backup', RestoreStatus.failed);
         return RestoreResult.failure('Failed to download backup file');
       }
 
       // Step 5: Get master key (consistent account)
-      _updateProgress(60, null, 'Preparing decryption...', RestoreStatus.decrypting);
+      _updateProgress(
+          60, null, 'Preparing decryption...', RestoreStatus.decrypting);
       final masterKey = await _keyManager.getOrCreatePersistentMasterKeyV2(
         preferredAccount: _driveAuthService.currentUser,
       );
       if (masterKey == null) {
-        _updateProgress(0, null, 'Failed to get encryption key', RestoreStatus.failed);
+        _updateProgress(
+            0, null, 'Failed to get encryption key', RestoreStatus.failed);
         return RestoreResult.failure('Failed to get encryption key');
       }
 
-      // Step 6: Decrypt backup
-      _updateProgress(70, null, 'Decrypting backup...', RestoreStatus.decrypting);
-      final encryptedData = json.decode(utf8.decode(encryptedBytes)) as Map<String, dynamic>;
-      final databaseBytes = await _encryptionService.decryptDatabase(
+      // Step 6: Decrypt backup with legacy support
+      _updateProgress(
+          70, null, 'Decrypting backup...', RestoreStatus.decrypting);
+      final encryptedData =
+          json.decode(utf8.decode(encryptedBytes)) as Map<String, dynamic>;
+
+      // Use legacy decryption service for automatic version detection
+      if (kDebugMode) {
+        print('[BackupService] Using legacy-aware decryption...');
+        final info = _legacyDecryption.getDecryptionInfo(encryptedData);
+        print('[BackupService] Backup info: $info');
+      }
+
+      final databaseBytes = await _legacyDecryption.decryptBackupWithFallback(
         encryptedBackup: encryptedData,
         masterKey: masterKey,
       );
 
       if (databaseBytes == null) {
-        _updateProgress(0, null, 'Failed to decrypt backup', RestoreStatus.failed);
-        return RestoreResult.failure('Failed to decrypt backup. The backup may be corrupted.');
+        _updateProgress(
+            0, null, 'Failed to decrypt backup', RestoreStatus.failed);
+        return RestoreResult.failure(
+            'Failed to decrypt backup. The backup may be corrupted or from an incompatible version.');
       }
 
       // Step 7: Restore database
-      _updateProgress(85, null, 'Restoring your data...', RestoreStatus.applying);
+      _updateProgress(
+          85, null, 'Restoring your data...', RestoreStatus.applying);
       final restoreResult = await _restoreDatabase(databaseBytes);
-      
+
       if (!restoreResult.success) {
-        _updateProgress(0, null, 'Failed to restore data', RestoreStatus.failed);
+        _updateProgress(
+            0, null, 'Failed to restore data', RestoreStatus.failed);
         return restoreResult;
       }
 
       _updateProgress(100, null, 'Restore completed!', RestoreStatus.completed);
-      
+
       if (kDebugMode) {
         print('✅ Restore completed successfully');
+      }
+
+      // ✨ NEW: Delete safety backup after successful restore
+      if (safetyBackupId != null) {
+        await _safetyBackupService.deleteSafetyBackup(safetyBackupId);
+        _logger.i('[Restore] Safety backup deleted after successful restore');
       }
 
       return RestoreResult.success(
@@ -400,11 +472,18 @@ class BackupService extends ChangeNotifier {
         backupDate: backupFile.modifiedTime ?? DateTime.now(),
         sourceDevice: 'Unknown Device',
       );
-
     } catch (e) {
       if (kDebugMode) {
         print('💥 Restore failed: $e');
       }
+      
+      // ✨ NEW: Offer rollback if safety backup exists
+      if (safetyBackupId != null) {
+        _logger.w('[Restore] Restore failed, safety backup available for rollback: $safetyBackupId');
+        // Note: Rollback UI will be handled by the calling UI component
+        // The safetyBackupId is available in the error message for UI to use
+      }
+      
       _updateProgress(0, null, 'Restore failed', RestoreStatus.failed);
       return RestoreResult.failure('Restore failed: ${e.toString()}');
     } finally {
@@ -412,10 +491,32 @@ class BackupService extends ChangeNotifier {
     }
   }
 
+  /// ✨ NEW: Rollback from safety backup
+  /// Used when restore fails and user wants to restore previous state
+  Future<bool> rollbackFromSafetyBackup(String safetyBackupId) async {
+    _logger.i('[Rollback] Starting rollback from safety backup: $safetyBackupId');
+    
+    try {
+      final success = await _safetyBackupService.restoreFromSafetyBackup(safetyBackupId);
+      
+      if (success) {
+        _logger.i('[Rollback] Rollback successful');
+        return true;
+      } else {
+        _logger.e('[Rollback] Rollback failed');
+        return false;
+      }
+    } catch (e, stackTrace) {
+      _logger.e('[Rollback] Rollback error', error: e, stackTrace: stackTrace);
+      return false;
+    }
+  }
+
   /// Keep only last [keep] backups in Drive (by modifiedTime desc)
   Future<void> _pruneOldBackups({int keep = 5}) async {
     try {
-      final files = await _driveService.listFiles(query: "name contains '$_backupPrefix'");
+      final files = await _driveService.listFiles(
+          query: "name contains '$_backupPrefix'");
       if (files.length <= keep) return;
       for (var i = keep; i < files.length; i++) {
         final f = files[i];
@@ -430,6 +531,7 @@ class BackupService extends ChangeNotifier {
     }
   }
 
+
   /// Check for existing backup
   Future<BackupMetadata?> findExistingBackup() async {
     try {
@@ -437,14 +539,16 @@ class BackupService extends ChangeNotifier {
         return null;
       }
 
-      final allFiles = await _driveService.listFiles(query: "name contains '$_backupPrefix'");
+      final allFiles = await _driveService.listFiles(
+          query: "name contains '$_backupPrefix'");
 
       // Filter out the key file and only keep .crypt14 backup files
-      final backupFiles = allFiles.where((file) =>
-        file.name != null &&
-        file.name!.endsWith('.crypt14') &&
-        !file.name!.contains('keys')
-      ).toList();
+      final backupFiles = allFiles
+          .where((file) =>
+              file.name != null &&
+              file.name!.endsWith('.crypt14') &&
+              !file.name!.contains('keys'))
+          .toList();
 
       if (backupFiles.isEmpty) {
         return null;
@@ -452,17 +556,18 @@ class BackupService extends ChangeNotifier {
 
       final backupFile = backupFiles.first;
       final currentUser = _driveService.currentUser;
-      
+
       // Get detailed file info to ensure we have the correct size
       final detailedFileInfo = await _driveService.getFileInfo(backupFile.id!);
-      final fileSize = int.tryParse(detailedFileInfo?.size ?? backupFile.size ?? '0') ?? 0;
-      
+      final fileSize =
+          int.tryParse(detailedFileInfo?.size ?? backupFile.size ?? '0') ?? 0;
+
       if (kDebugMode) {
         print('📊 Backup file size from API: ${backupFile.size}');
         print('📊 Detailed file size: ${detailedFileInfo?.size}');
         print('📊 Final file size: $fileSize bytes');
       }
-      
+
       return BackupMetadata(
         version: '1.0',
         userEmail: currentUser?.email ?? 'Unknown',
@@ -491,16 +596,16 @@ class BackupService extends ChangeNotifier {
 
       // Get all data from Hive boxes
       final Map<String, dynamic> backupData = {};
-      
+
       // Backup income entries
       final incomeBox = await Hive.openBox<List<dynamic>>('income_entries');
       final incomeData = <String, dynamic>{};
-      
+
       if (kDebugMode) {
         print('📊 Income box keys: ${incomeBox.keys.toList()}');
         print('📊 Income box length: ${incomeBox.length}');
       }
-      
+
       for (final key in incomeBox.keys) {
         final value = incomeBox.get(key);
         if (value is List) {
@@ -520,20 +625,21 @@ class BackupService extends ChangeNotifier {
           incomeData[key.toString()] = value;
         }
         if (kDebugMode) {
-          print('📊 Income key: $key, value type: ${value.runtimeType}, length: ${value is List ? value.length : 'not a list'}');
+          print(
+              '📊 Income key: $key, value type: ${value.runtimeType}, length: ${value is List ? value.length : 'not a list'}');
         }
       }
       backupData['income_entries'] = incomeData;
-      
-      // Backup outcome entries  
+
+      // Backup outcome entries
       final outcomeBox = await Hive.openBox<List<dynamic>>('outcome_entries');
       final outcomeData = <String, dynamic>{};
-      
+
       if (kDebugMode) {
         print('📊 Outcome box keys: ${outcomeBox.keys.toList()}');
         print('📊 Outcome box length: ${outcomeBox.length}');
       }
-      
+
       for (final key in outcomeBox.keys) {
         final value = outcomeBox.get(key);
         if (value is List) {
@@ -553,7 +659,8 @@ class BackupService extends ChangeNotifier {
           outcomeData[key.toString()] = value;
         }
         if (kDebugMode) {
-          print('📊 Outcome key: $key, value type: ${value.runtimeType}, length: ${value is List ? value.length : 'not a list'}');
+          print(
+              '📊 Outcome key: $key, value type: ${value.runtimeType}, length: ${value is List ? value.length : 'not a list'}');
         }
       }
       backupData['outcome_entries'] = outcomeData;
@@ -561,14 +668,14 @@ class BackupService extends ChangeNotifier {
       // Convert to JSON bytes
       final jsonString = json.encode(backupData);
       final bytes = utf8.encode(jsonString);
-      
+
       if (kDebugMode) {
         print('💾 Encrypting database for backup...');
         print('   Database size: ${bytes.length} bytes');
         print('   Income entries: ${incomeData.length} months');
         print('   Outcome entries: ${outcomeData.length} months');
       }
-      
+
       return Uint8List.fromList(bytes);
     } catch (e) {
       if (kDebugMode) {
@@ -581,15 +688,10 @@ class BackupService extends ChangeNotifier {
   /// Restore database from backup
   Future<RestoreResult> _restoreDatabase(Uint8List databaseBytes) async {
     try {
-      if (kDebugMode) {
-        print('💾 Restoring Hive database from backup...');
-      }
+      _logger.d('[Restore] Restoring Hive database from backup...');
 
       if (databaseBytes.isEmpty) {
-        if (kDebugMode) {
-          print('⚠️ No data to restore (empty backup)');
-        }
-
+        _logger.w('[Restore] Backup payload was empty');
         return RestoreResult.success(
           incomeEntries: 0,
           outcomeEntries: 0,
@@ -598,120 +700,165 @@ class BackupService extends ChangeNotifier {
         );
       }
 
-      // Parse JSON from backup
       final jsonString = utf8.decode(databaseBytes);
       final Map<String, dynamic> backupData = json.decode(jsonString);
-      
-      int restoredIncomeEntries = 0;
-      int restoredOutcomeEntries = 0;
 
-      // Restore income entries
+      int backupIncomeEntries = 0;
+      int backupOutcomeEntries = 0;
+
+      final Map<String, List<IncomeEntry>> validatedIncomeData = {};
+      final Map<String, List<OutcomeEntry>> validatedOutcomeData = {};
+
       if (backupData.containsKey('income_entries')) {
-        final incomeBox = await Hive.openBox<List<dynamic>>('income_entries');
-        await incomeBox.clear(); // Clear existing data
-        
         final incomeData = backupData['income_entries'] as Map<String, dynamic>;
         for (final entry in incomeData.entries) {
           if (entry.value is List) {
-            // Convert JSON objects back to IncomeEntry objects
-            final entryList = (entry.value as List).map((item) {
-              try {
+            try {
+              final entryList = (entry.value as List).map((item) {
                 if (item is Map<String, dynamic>) {
-                  // Backward compatibility: add createdAt if missing
-                  if (!item.containsKey('createdAt') && item['amount'] != null && (item['amount'] as num) > 0) {
+                  if (!item.containsKey('createdAt') && item['date'] != null) {
                     item['createdAt'] = item['date'];
                   }
                   return IncomeEntry.fromJson(item);
                 } else if (item is IncomeEntry) {
-                  return item; // Already correct type
-                } else {
-                  // Try to convert from dynamic
-                  return IncomeEntry.fromJson(item as Map<String, dynamic>);
+                  return item;
                 }
-              } catch (e) {
-                if (kDebugMode) {
-                  print('⚠️ Error converting income entry: $e, item: $item');
-                }
-                rethrow;
-              }
-            }).toList();
-            
-            await incomeBox.put(entry.key, entryList);
-            restoredIncomeEntries += entryList.length;
-            
-            if (kDebugMode) {
-              print('📱 Restored ${entry.key}: ${entryList.length} income entries');
+                return IncomeEntry.fromJson(item as Map<String, dynamic>);
+              }).toList();
+
+              validatedIncomeData[entry.key] = entryList;
+              backupIncomeEntries += entryList.length;
+            } catch (e) {
+              _logger.e('[Restore] Failed to parse income entry ${entry.key}',
+                  error: e);
+              rethrow;
             }
-          } else {
-            await incomeBox.put(entry.key, entry.value);
           }
         }
-        
-        if (kDebugMode) {
-          print('📱 Restored ${incomeData.length} income months total');
-        }
+        _logger.d(
+            '[Restore] Income validation complete: $backupIncomeEntries entries');
       }
 
-      // Restore outcome entries
       if (backupData.containsKey('outcome_entries')) {
-        final outcomeBox = await Hive.openBox<List<dynamic>>('outcome_entries');
-        await outcomeBox.clear(); // Clear existing data
-        
-        final outcomeData = backupData['outcome_entries'] as Map<String, dynamic>;
+        final outcomeData =
+            backupData['outcome_entries'] as Map<String, dynamic>;
         for (final entry in outcomeData.entries) {
           if (entry.value is List) {
-            // Convert JSON objects back to OutcomeEntry objects
-            final entryList = (entry.value as List).map((item) {
-              try {
+            try {
+              final entryList = (entry.value as List).map((item) {
                 if (item is Map<String, dynamic>) {
                   return OutcomeEntry.fromJson(item);
                 } else if (item is OutcomeEntry) {
-                  return item; // Already correct type
-                } else {
-                  // Try to convert from dynamic
-                  return OutcomeEntry.fromJson(item as Map<String, dynamic>);
+                  return item;
                 }
-              } catch (e) {
-                if (kDebugMode) {
-                  print('⚠️ Error converting outcome entry: $e, item: $item');
-                }
-                rethrow;
-              }
-            }).toList();
-            
-            await outcomeBox.put(entry.key, entryList);
-            restoredOutcomeEntries += entryList.length;
-            
-            if (kDebugMode) {
-              print('📱 Restored ${entry.key}: ${entryList.length} outcome entries');
+                return OutcomeEntry.fromJson(item as Map<String, dynamic>);
+              }).toList();
+
+              validatedOutcomeData[entry.key] = entryList;
+              backupOutcomeEntries += entryList.length;
+            } catch (e) {
+              _logger.e('[Restore] Failed to parse outcome entry ${entry.key}',
+                  error: e);
+              rethrow;
             }
-          } else {
-            await outcomeBox.put(entry.key, entry.value);
           }
         }
-        
-        if (kDebugMode) {
-          print('📱 Restored ${outcomeData.length} outcome months total');
+        _logger.d(
+            '[Restore] Outcome validation complete: $backupOutcomeEntries entries');
+      }
+
+      _logger.d('[Restore] Validation succeeded. Preparing smart merge...');
+
+      final incomeBox = await Hive.openBox<List<dynamic>>('income_entries');
+      final outcomeBox = await Hive.openBox<List<dynamic>>('outcome_entries');
+
+      final Map<String, List<IncomeEntry>> localIncomeData = {};
+      for (final key in incomeBox.keys) {
+        final value = incomeBox.get(key);
+        if (value is List) {
+          localIncomeData[key.toString()] =
+              value.whereType<IncomeEntry>().toList();
         }
       }
 
-      if (kDebugMode) {
-        print('✅ Database restored successfully');
-        print('   Total income entries: $restoredIncomeEntries');
-        print('   Total outcome entries: $restoredOutcomeEntries');
+      final Map<String, List<OutcomeEntry>> localOutcomeData = {};
+      for (final key in outcomeBox.keys) {
+        final value = outcomeBox.get(key);
+        if (value is List) {
+          localOutcomeData[key.toString()] =
+              value.whereType<OutcomeEntry>().toList();
+        }
       }
 
+      // ✨ NEW: Log merge decision (for future isolate implementation)
+      final localIncomeCount = localIncomeData.values.fold<int>(0, (sum, list) => sum + list.length);
+      final localOutcomeCount = localOutcomeData.values.fold<int>(0, (sum, list) => sum + list.length);
+      final remoteIncomeCount = validatedIncomeData.values.fold<int>(0, (sum, list) => sum + list.length);
+      final remoteOutcomeCount = validatedOutcomeData.values.fold<int>(0, (sum, list) => sum + list.length);
+      final totalEntries = localIncomeCount + localOutcomeCount + remoteIncomeCount + remoteOutcomeCount;
+
+      if (totalEntries > 500) {
+        _logger.i('[Restore] Large dataset detected (${totalEntries} entries) - consider using isolate for future optimization');
+      }
+
+      final tracker = MergeTracker()..start();
+
+      final mergedIncomeData = await _mergeService.mergeIncomeEntries(
+        backupData: validatedIncomeData,
+        localData: localIncomeData,
+        tracker: tracker,
+      );
+
+      final mergedOutcomeData = await _mergeService.mergeOutcomeEntries(
+        backupData: validatedOutcomeData,
+        localData: localOutcomeData,
+        tracker: tracker,
+      );
+
+      tracker.finish();
+      final mergeStats = tracker.toStatistics();
+
+      final mergeResult = MergeResult.success(
+        totalEntries: mergedIncomeData.values.fold<int>(0, (sum, list) => sum + list.length) +
+                      mergedOutcomeData.values.fold<int>(0, (sum, list) => sum + list.length),
+        entriesFromBackup: backupIncomeEntries + backupOutcomeEntries,
+        entriesFromLocal: localIncomeCount + localOutcomeCount,
+        conflictsResolved: mergeStats.totalConflicts,
+        duplicatesSkipped: mergeStats.incomeSkipped + mergeStats.outcomeSkipped,
+        duration: mergeStats.processingTime,
+        statistics: mergeStats,
+      );
+
+      final mergedIncomeCount = mergedIncomeData.values
+          .fold<int>(0, (sum, list) => sum + list.length);
+      final mergedOutcomeCount = mergedOutcomeData.values
+          .fold<int>(0, (sum, list) => sum + list.length);
+
+      await incomeBox.clear();
+      for (final entry in mergedIncomeData.entries) {
+        await incomeBox.put(entry.key, entry.value);
+      }
+
+      await outcomeBox.clear();
+      for (final entry in mergedOutcomeData.entries) {
+        await outcomeBox.put(entry.key, entry.value);
+      }
+
+      _lastMergeResult = mergeResult;
+      _logger.i(
+          '[Restore] Merge complete: total=${mergedIncomeCount + mergedOutcomeCount}, conflicts=${mergeResult.statistics.totalConflicts}');
+
       return RestoreResult.success(
-        incomeEntries: restoredIncomeEntries,
-        outcomeEntries: restoredOutcomeEntries,
+        incomeEntries: mergedIncomeCount,
+        outcomeEntries: mergedOutcomeCount,
         backupDate: DateTime.now(),
         sourceDevice: 'Unknown Device',
       );
-    } catch (e) {
-      if (kDebugMode) {
-        print('💥 Error restoring database: $e');
-      }
-      return RestoreResult.failure('Failed to restore database: ${e.toString()}');
+    } catch (e, stackTrace) {
+      _logger.e('[Restore] Error restoring database',
+          error: e, stackTrace: stackTrace);
+      return RestoreResult.failure(
+          'Failed to restore database: ${e.toString()}');
     }
   }
 
@@ -745,8 +892,8 @@ class BackupService extends ChangeNotifier {
   Future<bool> _checkConnectivity() async {
     try {
       final connectivityResult = await Connectivity().checkConnectivity();
-      return connectivityResult.contains(ConnectivityResult.mobile) || 
-             connectivityResult.contains(ConnectivityResult.wifi);
+      return connectivityResult.contains(ConnectivityResult.mobile) ||
+          connectivityResult.contains(ConnectivityResult.wifi);
     } catch (e) {
       if (kDebugMode) {
         print('💥 Error checking connectivity: $e');
@@ -757,11 +904,8 @@ class BackupService extends ChangeNotifier {
 
   /// Update progress and notify listeners
   void _updateProgress(
-    int percentage, 
-    BackupStatus? backupStatus, 
-    String action, 
-    [RestoreStatus? restoreStatus]
-  ) {
+      int percentage, BackupStatus? backupStatus, String action,
+      [RestoreStatus? restoreStatus]) {
     _currentProgress = OperationProgress(
       percentage: percentage,
       backupStatus: backupStatus,
@@ -774,12 +918,14 @@ class BackupService extends ChangeNotifier {
   /// Cancel current operation
   Future<void> cancelCurrentOperation() async {
     if (_isBackupInProgress) {
-      _updateProgress(_currentProgress.percentage, BackupStatus.cancelled, 'Backup cancelled');
+      _updateProgress(_currentProgress.percentage, BackupStatus.cancelled,
+          'Backup cancelled');
       _isBackupInProgress = false;
     }
-    
+
     if (_isRestoreInProgress) {
-      _updateProgress(_currentProgress.percentage, null, 'Restore cancelled', RestoreStatus.cancelled);
+      _updateProgress(_currentProgress.percentage, null, 'Restore cancelled',
+          RestoreStatus.cancelled);
       _isRestoreInProgress = false;
     }
   }
@@ -829,7 +975,7 @@ class BackupService extends ChangeNotifier {
 
       // Try to initialize the drive service which will attempt silent sign in
       final success = await _driveService.initialize();
-      
+
       if (success) {
         return isSignedIn;
       }
@@ -844,7 +990,8 @@ class BackupService extends ChangeNotifier {
   }
 
   /// Verify backup silently in background (no UI updates)
-  Future<void> _verifyBackupSilently(String backupId, String driveFileId) async {
+  Future<void> _verifyBackupSilently(
+      String backupId, String driveFileId) async {
     try {
       if (kDebugMode) {
         print('?? Starting silent verification for backup: $backupId');
@@ -874,7 +1021,8 @@ class BackupService extends ChangeNotifier {
         final expectedSize = int.tryParse(sizeString) ?? 0;
         if (expectedSize > 0 && downloadedBytes.length != expectedSize) {
           if (kDebugMode) {
-            print('? Verification failed: Size mismatch (expected: $expectedSize, actual: ${downloadedBytes.length})');
+            print(
+                '? Verification failed: Size mismatch (expected: $expectedSize, actual: ${downloadedBytes.length})');
           }
           return;
         }
@@ -894,7 +1042,7 @@ class BackupService extends ChangeNotifier {
         return;
       }
 
-      final decryptedBytes = await _encryptionService.decryptDatabase(
+      final decryptedBytes = await _legacyDecryption.decryptBackupWithFallback(
         encryptedBackup: encryptedData,
         masterKey: masterKey,
       );
@@ -913,7 +1061,6 @@ class BackupService extends ChangeNotifier {
         print('   Size: ${downloadedBytes.length} bytes');
         print('   Decrypted size: ${decryptedBytes.length} bytes');
       }
-
     } catch (e) {
       if (kDebugMode) {
         print('? Silent verification error: $e');

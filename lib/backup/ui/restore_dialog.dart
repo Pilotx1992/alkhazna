@@ -6,7 +6,7 @@ import 'backup_progress_sheet.dart';
 /// WhatsApp-style restore dialog
 class RestoreDialog extends StatefulWidget {
   final VoidCallback? onRestoreComplete;
-  
+
   const RestoreDialog({
     super.key,
     this.onRestoreComplete,
@@ -172,9 +172,9 @@ class _RestoreDialogState extends State<RestoreDialog> {
             ],
           ),
         ),
-        
+
         const SizedBox(height: 16),
-        
+
         // Warning message
         Container(
           width: double.infinity,
@@ -194,7 +194,7 @@ class _RestoreDialogState extends State<RestoreDialog> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'This will replace your current data with the backup data.',
+                  'Smart restore will run. A safety backup of your current data will be created before applying the restore.',
                   style: TextStyle(
                     color: Colors.orange[700],
                     fontSize: 14,
@@ -215,7 +215,8 @@ class _RestoreDialogState extends State<RestoreDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildDetailRow('Date', _formatBackupDate(_backupMetadata!.createdAt)),
-        _buildDetailRow('Size', _formatFileSize(_backupMetadata!.fileSizeBytes)),
+        _buildDetailRow(
+            'Size', _formatFileSize(_backupMetadata!.fileSizeBytes)),
         _buildDetailRow('Device', _backupMetadata!.deviceId),
         _buildDetailRow('Account', _backupMetadata!.userEmail),
       ],
@@ -298,7 +299,7 @@ class _RestoreDialogState extends State<RestoreDialog> {
 
   void _startRestore() {
     Navigator.pop(context); // Close dialog
-    
+
     // Show restore progress
     showModalBottomSheet(
       context: context,
@@ -332,7 +333,7 @@ class _RestoreDialogState extends State<RestoreDialog> {
     final minute = date.minute.toString().padLeft(2, '0');
     final period = hour >= 12 ? 'PM' : 'AM';
     final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
-    
+
     return '$displayHour:$minute $period';
   }
 
@@ -345,5 +346,4 @@ class _RestoreDialogState extends State<RestoreDialog> {
       return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
     }
   }
-
 }

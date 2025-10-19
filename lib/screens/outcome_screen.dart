@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
+
 import '../models/outcome_entry.dart';
 import '../services/storage_service.dart';
 
@@ -20,12 +22,13 @@ class OutcomeScreen extends StatefulWidget {
 class _OutcomeScreenState extends State<OutcomeScreen> {
   final StorageService _storageService = StorageService();
   final ScrollController _scrollController = ScrollController();
+  final Uuid _uuid = const Uuid();
   List<OutcomeEntry> _outcomeEntries = [];
   final Map<String, TextEditingController> _amountControllers = {};
   final Map<String, TextEditingController> _nameControllers = {};
   final Map<String, TextEditingController> _dateControllers = {};
   late DateTime _selectedDate;
-  
+
   // Controllers for the input form
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _amountInputController = TextEditingController();
@@ -89,10 +92,10 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
     }
   }
 
-
   void _addNewEntry() {
     // Validate input
-    if (_descriptionController.text.trim().isEmpty || _amountInputController.text.trim().isEmpty) {
+    if (_descriptionController.text.trim().isEmpty ||
+        _amountInputController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please fill description and amount'),
@@ -101,7 +104,7 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
       );
       return;
     }
-    
+
     final amount = double.tryParse(_amountInputController.text.trim()) ?? 0;
     if (amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -114,7 +117,7 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
     }
 
     final newEntry = OutcomeEntry(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      id: 'out_${_uuid.v4()}',
       name: _descriptionController.text.trim(),
       amount: amount,
       date: _selectedDate,
@@ -122,18 +125,18 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
 
     setState(() {
       _outcomeEntries.add(newEntry);
-      _amountControllers[newEntry.id] = TextEditingController(
-        text: amount.toStringAsFixed(0)
-      );
-      _nameControllers[newEntry.id] = TextEditingController(text: newEntry.name);
+      _amountControllers[newEntry.id] =
+          TextEditingController(text: amount.toStringAsFixed(0));
+      _nameControllers[newEntry.id] =
+          TextEditingController(text: newEntry.name);
       _dateControllers[newEntry.id] = TextEditingController(
           text: DateFormat('dd/MM').format(_selectedDate));
-      
+
       // Clear input fields
       _descriptionController.clear();
       _amountInputController.clear();
     });
-    
+
     _saveEntries();
     _scrollToBottom();
   }
@@ -151,23 +154,22 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
     });
   }
 
-
-
   void _deleteEntryById(String entryId) {
-    final entryIndex = _outcomeEntries.indexWhere((entry) => entry.id == entryId);
+    final entryIndex =
+        _outcomeEntries.indexWhere((entry) => entry.id == entryId);
     if (entryIndex == -1) return; // Entry not found
-    
+
     final entryToDelete = _outcomeEntries[entryIndex];
-    
+
     setState(() {
       _outcomeEntries.removeAt(entryIndex);
       _nameControllers.remove(entryToDelete.id)?.dispose();
       _amountControllers.remove(entryToDelete.id)?.dispose();
       _dateControllers.remove(entryToDelete.id)?.dispose();
     });
-    
+
     _saveEntries();
-    
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -195,8 +197,6 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
     }
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -210,7 +210,8 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
               // Date section
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 color: Colors.white,
                 child: Row(
                   children: [
@@ -241,7 +242,8 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
                       },
                       child: Row(
                         children: [
-                          const Icon(Icons.calendar_today, color: Colors.blue, size: 20),
+                          const Icon(Icons.calendar_today,
+                              color: Colors.blue, size: 20),
                           const SizedBox(width: 8),
                           Text(
                             DateFormat('dd/MM/yyyy').format(_selectedDate),
@@ -257,7 +259,7 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
                   ],
                 ),
               ),
-              
+
               // Input form section
               Container(
                 width: double.infinity,
@@ -282,7 +284,8 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
                             color: Colors.grey,
                           ),
                           border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          contentPadding: EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 14),
                         ),
                         style: const TextStyle(
                           fontSize: 16,
@@ -291,7 +294,7 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    
+
                     // Amount field
                     Container(
                       width: double.infinity,
@@ -301,15 +304,17 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
                       ),
                       child: TextField(
                         controller: _amountInputController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
                         decoration: const InputDecoration(
-                          hintText: 'Amount', 
+                          hintText: 'Amount',
                           hintStyle: TextStyle(
                             fontSize: 16,
                             color: Colors.grey,
                           ),
                           border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          contentPadding: EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 14),
                         ),
                         style: const TextStyle(
                           fontSize: 16,
@@ -318,7 +323,7 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // Add Expense button
                     SizedBox(
                       width: double.infinity,
@@ -326,7 +331,7 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
                       child: ElevatedButton(
                         onPressed: _addNewEntry,
                         style: ElevatedButton.styleFrom(
-                                                backgroundColor: const Color(0xFFE53E3E),
+                          backgroundColor: const Color(0xFFE53E3E),
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(30),
@@ -352,7 +357,7 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
                   ],
                 ),
               ),
-              
+
               // Content area
               Expanded(
                 child: _outcomeEntries.isEmpty
@@ -388,7 +393,8 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
                       )
                     : ListView.builder(
                         controller: _scrollController,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
                         itemCount: _outcomeEntries.length,
                         itemBuilder: (context, index) {
                           return _buildExpenseListItem(index);
@@ -466,9 +472,9 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
                   color: Colors.red,
                 ),
               ),
-              
+
               const Spacer(),
-              
+
               // Description (Arabic text, center)
               Expanded(
                 flex: 3,
@@ -482,9 +488,9 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
                   ),
                 ),
               ),
-              
+
               const Spacer(),
-              
+
               // Date (DD/MM format)
               Text(
                 DateFormat('dd/MM').format(entry.date),
@@ -494,15 +500,14 @@ class _OutcomeScreenState extends State<OutcomeScreen> {
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              
+
               const SizedBox(width: 24),
-              
+
               // Row number (right side in red)
               Container(
                 width: 24,
                 height: 24,
                 decoration: BoxDecoration(
-                 
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Center(

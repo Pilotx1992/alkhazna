@@ -83,7 +83,10 @@ class SecurityService extends ChangeNotifier {
   DateTime? get lockoutUntil => _settings?.lockoutUntil;
 
   /// Auto-lock timeout in seconds (0 = immediate)
-  int get autoLockTimeout => _settings?.autoLockTimeout ?? 0;
+  int get autoLockTimeout => _settings?.autoLockTimeout ?? 30;
+
+  /// Session duration in minutes
+  int get sessionDuration => _settings?.sessionDuration ?? 15;
 
   /// Check if currently in lockout period
   bool get isLockedOut {
@@ -96,6 +99,19 @@ class SecurityService extends ChangeNotifier {
     if (!isLockedOut) return 0;
     final remaining = lockoutUntil!.difference(DateTime.now()).inSeconds;
     return remaining > 0 ? remaining : 0;
+  }
+
+  /// Whether a session is currently active
+  bool get isSessionActive {
+    if (!_isInitialized || _settings == null) return false;
+    if (_settings!.sessionStartTime == null) return false;
+
+    final now = DateTime.now();
+    final sessionStart = _settings!.sessionStartTime!;
+    final sessionDurationMinutes = _settings!.sessionDuration ?? 15; // Default 15 minutes
+    final expiryTime = sessionStart.add(Duration(minutes: sessionDurationMinutes));
+
+    return now.isBefore(expiryTime);
   }
 
   // ==================== PIN Management ====================
@@ -166,9 +182,13 @@ class SecurityService extends ChangeNotifier {
         await _resetFailedAttempts();
         _isLocked = false;
         _settings!.lastUnlockedAt = DateTime.now();
+
+        // Start session on successful unlock
+        await startSession();
+
         await _saveSettings();
         notifyListeners();
-        debugPrint('✅ PIN verified successfully');
+        debugPrint('✅ PIN verified successfully + session started');
         return true;
       } else {
         await _incrementFailedAttempts();
@@ -338,9 +358,13 @@ class SecurityService extends ChangeNotifier {
         await _resetFailedAttempts();
         _isLocked = false;
         _settings!.lastUnlockedAt = DateTime.now();
+
+        // Start session on successful biometric auth
+        await startSession();
+
         await _saveSettings();
         notifyListeners();
-        debugPrint('✅ Biometric authentication successful');
+        debugPrint('✅ Biometric authentication successful + session started');
       }
 
       return authenticated;
@@ -370,6 +394,130 @@ class SecurityService extends ChangeNotifier {
     _isLocked = false;
     notifyListeners();
     debugPrint('🔓 App unlocked');
+  }
+
+  // ==================== Session Management ====================
+
+  /// Start a new security session after successful unlock
+  Future<void> startSession() async {
+    _ensureInitialized();
+
+    final now = DateTime.now();
+    _settings!.sessionStartTime = now;
+    _settings!.lastInteractionTime = now;
+    await _saveSettings();
+
+    notifyListeners();
+    final duration = _settings!.sessionDuration ?? 15;
+    debugPrint('✅ Security session started (expires in $duration minutes)');
+  }
+
+  /// End the current security session
+  Future<void> endSession() async {
+    _ensureInitialized();
+
+    _settings!.sessionStartTime = null;
+    _settings!.lastInteractionTime = null;
+    await _saveSettings();
+
+    notifyListeners();
+    debugPrint('🔒 Security session ended');
+  }
+
+  /// Update last interaction timestamp to keep session alive
+  Future<void> updateLastInteraction() async {
+    _ensureInitialized();
+
+    // Only update if session is active
+    if (isSessionActive) {
+      _settings!.lastInteractionTime = DateTime.now();
+      // Don't save on every interaction - too frequent
+      // Session expiry is based on sessionStartTime anyway
+      debugPrint('🔄 Interaction recorded - session refreshed');
+    }
+  }
+
+  /// Determine if app should lock based on auto-lock timeout
+  ///
+  /// Returns true if app should lock, false if still within grace period
+  bool shouldLockOnResume(DateTime pausedTime) {
+    _ensureInitialized();
+
+    // If no PIN, never lock
+    if (!isPinEnabled) return false;
+
+    // Check if session is active - if so, don't lock
+    if (isSessionActive) {
+      debugPrint('✅ Session active - no lock needed');
+      return false;
+    }
+
+    // Session expired - check auto-lock timeout
+    final autoLockSeconds = autoLockTimeout;
+
+    // Never lock (timeout = -1 or very large)
+    if (autoLockSeconds < 0 || autoLockSeconds > 3600) {
+      debugPrint('✅ Auto-lock disabled - no lock');
+      return false;
+    }
+
+    // Immediate lock (timeout = 0)
+    if (autoLockSeconds == 0) {
+      debugPrint('🔒 Immediate lock enabled - locking');
+      return true;
+    }
+
+    // Check if pause duration exceeded timeout
+    final now = DateTime.now();
+    final pauseDuration = now.difference(pausedTime);
+    final shouldLock = pauseDuration.inSeconds >= autoLockSeconds;
+
+    if (shouldLock) {
+      debugPrint('🔒 Auto-lock timeout exceeded (${pauseDuration.inSeconds}s > ${autoLockSeconds}s)');
+    } else {
+      debugPrint('✅ Within grace period (${pauseDuration.inSeconds}s < ${autoLockSeconds}s)');
+    }
+
+    return shouldLock;
+  }
+
+  /// Immediately lock the app and end session
+  /// Used for manual "Lock Now" button
+  Future<void> lockNow() async {
+    _ensureInitialized();
+
+    if (!isPinEnabled) return;
+
+    // End session
+    await endSession();
+
+    // Lock app
+    _isLocked = true;
+    notifyListeners();
+
+    debugPrint('🔒 App locked manually (Lock Now)');
+  }
+
+  /// Update auto-lock timeout setting
+  Future<void> setAutoLockTimeout(int seconds) async {
+    _ensureInitialized();
+
+    _settings!.autoLockTimeout = seconds;
+    await _saveSettings();
+    notifyListeners();
+
+    debugPrint('⏱️ Auto-lock timeout set to ${seconds}s');
+  }
+
+  /// Update session duration setting
+  Future<void> setSessionDuration(int minutes) async {
+    _ensureInitialized();
+
+    _settings!.sessionDuration = minutes;
+    await _saveSettings();
+    notifyListeners();
+
+    debugPrint('⏱️ Session duration set to $minutes minutes');
   }
 
   // ==================== Failed Attempts Management ====================

@@ -311,7 +311,7 @@ class AppTheme {
         iconColor: Colors.white70,
         tileColor: cardColor,
       ),
-
+      
       dialogTheme: DialogThemeData(
         backgroundColor: cardColor,
         titleTextStyle: const TextStyle(
@@ -443,6 +443,9 @@ class _AlKhaznaAppState extends State<AlKhaznaApp> with WidgetsBindingObserver {
   late LanguageService _languageService;
   late NotificationSettingsService _notificationSettingsService;
 
+  // Track when app went to background
+  DateTime? _pausedTime;
+
   @override
   void initState() {
     super.initState();
@@ -465,12 +468,32 @@ class _AlKhaznaAppState extends State<AlKhaznaApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Smart auto-lock logic
     if (state == AppLifecycleState.paused) {
-      // Lock app when going to background
-      _securityService.lockApp();
+      // App going to background - record timestamp
+      _pausedTime = DateTime.now();
+      debugPrint('📱 App paused at $_pausedTime');
+
+      // Don't lock immediately - wait for resume
     } else if (state == AppLifecycleState.resumed) {
-      // App resumed - SecurityWrapper will handle showing unlock screen if needed
-      setState(() {}); // Trigger rebuild
+      // App resumed - check if should lock
+      debugPrint('📱 App resumed');
+
+      if (_pausedTime != null) {
+        final shouldLock = _securityService.shouldLockOnResume(_pausedTime!);
+
+        if (shouldLock) {
+          _securityService.lockApp();
+          debugPrint('🔒 App locked due to timeout');
+        } else {
+          debugPrint('✅ App stays unlocked (within grace period or session active)');
+        }
+
+        _pausedTime = null;
+      }
+
+      // Trigger rebuild to show unlock screen if needed
+      setState(() {});
     }
   }
 

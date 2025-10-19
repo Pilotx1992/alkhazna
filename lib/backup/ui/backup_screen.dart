@@ -126,6 +126,8 @@ class _BackupScreenState extends State<BackupScreen> {
     // Show confirmation dialog
     final confirmed = await _showBackupConfirmationDialog();
     if (!confirmed) return;
+    
+    if (!mounted) return;
 
     try {
       // Show progress sheet
@@ -154,6 +156,8 @@ class _BackupScreenState extends State<BackupScreen> {
     // Show confirmation dialog
     final confirmed = await _showRestoreConfirmationDialog();
     if (!confirmed) return;
+    
+    if (!mounted) return;
 
     // Show progress sheet
     showModalBottomSheet(
@@ -562,7 +566,7 @@ class _BackupScreenState extends State<BackupScreen> {
     );
 
     final surfaceCard = isDark ? const Color(0xFF1C2B39) : Colors.white;
-    final sectionTitleColor = isDark ? Colors.white.withOpacity(0.92) : cs.onSurface;
+    final sectionTitleColor = isDark ? Colors.white.withValues(alpha:0.92) : cs.onSurface;
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0E1C28) : cs.surface,
@@ -627,7 +631,7 @@ class _BackupScreenState extends State<BackupScreen> {
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: isDark ? Colors.white.withOpacity(0.55) : cs.onSurfaceVariant,
+                                  color: isDark ? Colors.white.withValues(alpha:0.55) : cs.onSurfaceVariant,
                                 ),
                               ),
                             ),
@@ -655,7 +659,7 @@ class _BackupScreenState extends State<BackupScreen> {
         color: surfaceCard,
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.35), blurRadius: 18, offset: const Offset(0, 10)),
+          BoxShadow(color: Colors.black.withValues(alpha:0.35), blurRadius: 18, offset: const Offset(0, 10)),
         ],
       ),
       padding: const EdgeInsets.all(16),
@@ -669,7 +673,7 @@ class _BackupScreenState extends State<BackupScreen> {
                 child: CircleAvatar(
                   radius: 22,
                   backgroundImage: user?.photoUrl != null ? NetworkImage(user!.photoUrl!) : null,
-                  backgroundColor: cs.primary.withOpacity(0.12),
+                  backgroundColor: cs.primary.withValues(alpha:0.12),
                   child: user?.photoUrl == null
                       ? Icon(isConnected ? Icons.person : Icons.cloud_off, color: cs.primary)
                       : null,
@@ -703,7 +707,7 @@ class _BackupScreenState extends State<BackupScreen> {
                     const SizedBox(height: 2),
                                           Text(
                       isConnected ? user.email : 'Sign in to enable backup',
-                      style: TextStyle(color: sectionTitleColor.withOpacity(0.65), fontSize: 13),
+                      style: TextStyle(color: sectionTitleColor.withValues(alpha:0.65), fontSize: 13),
                     ),
                     if (isConnected) ...[
                       const SizedBox(height: 4),
@@ -711,7 +715,7 @@ class _BackupScreenState extends State<BackupScreen> {
                         hasBackup
                           ? 'Last backup: ${_formatBackupTime(_lastBackupTime!)}'
                           : 'Last backup: Never',
-                        style: TextStyle(color: sectionTitleColor.withOpacity(0.72), fontSize: 13, fontWeight: FontWeight.w500),
+                        style: TextStyle(color: sectionTitleColor.withValues(alpha:0.72), fontSize: 13, fontWeight: FontWeight.w500),
                                       ),
                                     ],
                                   ],
@@ -762,12 +766,12 @@ class _BackupScreenState extends State<BackupScreen> {
     }) {
       return Column(
                             children: [
-          if (topDivider) Divider(height: 1, color: sectionTitleColor.withOpacity(0.12)),
+          if (topDivider) Divider(height: 1, color: sectionTitleColor.withValues(alpha:0.12)),
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 14),
             child: Row(
                                   children: [
-                Icon(icon, color: sectionTitleColor.withOpacity(0.8)),
+                Icon(icon, color: sectionTitleColor.withValues(alpha:0.8)),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -787,7 +791,7 @@ class _BackupScreenState extends State<BackupScreen> {
       decoration: BoxDecoration(
         color: surfaceCard,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.35), blurRadius: 18, offset: const Offset(0, 10))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha:0.35), blurRadius: 18, offset: const Offset(0, 10))],
       ),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
       child: Column(
@@ -804,6 +808,7 @@ class _BackupScreenState extends State<BackupScreen> {
                                   if (value) {
                                     // Check if OnePlus/OEM needs special handling
                                     if (await OEMHelper.requiresSpecialHandling()) {
+                                      if (!mounted) return;
                                       await OEMHelper.requestAutoStartPermission(context);
                                     }
                                     await BackupScheduler.scheduleAutoBackup(_backupFrequency);
@@ -814,7 +819,7 @@ class _BackupScreenState extends State<BackupScreen> {
                                     _isAutoBackupEnabled = value;
                                   });
                                 },
-              activeColor: cs.primary,
+              activeTrackColor: cs.primary,
                               ),
                           ),
                           if (_isAutoBackupEnabled) ...[
@@ -828,7 +833,7 @@ class _BackupScreenState extends State<BackupScreen> {
                   children: [
                     Text(
                       _getFrequencyText(_backupFrequency),
-                      style: TextStyle(color: sectionTitleColor.withOpacity(0.75)),
+                      style: TextStyle(color: sectionTitleColor.withValues(alpha:0.75)),
                     ),
                     const SizedBox(width: 6),
                     Icon(Icons.chevron_right, color: sectionTitleColor),
@@ -846,7 +851,7 @@ class _BackupScreenState extends State<BackupScreen> {
                   children: [
                     Text(
                       _getNetworkText(_networkPreference),
-                      style: TextStyle(color: sectionTitleColor.withOpacity(0.75)),
+                      style: TextStyle(color: sectionTitleColor.withValues(alpha:0.75)),
                     ),
                     const SizedBox(width: 6),
                     Icon(Icons.chevron_right, color: sectionTitleColor),
@@ -869,7 +874,7 @@ class _BackupScreenState extends State<BackupScreen> {
       decoration: BoxDecoration(
         color: surfaceCard,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.35), blurRadius: 18, offset: const Offset(0, 10))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha:0.35), blurRadius: 18, offset: const Offset(0, 10))],
       ),
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -889,7 +894,7 @@ class _BackupScreenState extends State<BackupScreen> {
                   borderRadius: BorderRadius.circular(28),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF12C9B6).withOpacity(0.35),
+                      color: const Color(0xFF12C9B6).withValues(alpha:0.35),
                       blurRadius: 24,
                       spreadRadius: 1,
                       offset: const Offset(0, 8),
@@ -950,7 +955,7 @@ class _BackupScreenState extends State<BackupScreen> {
       decoration: BoxDecoration(
         color: surfaceCard,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.35), blurRadius: 18, offset: const Offset(0, 10))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha:0.35), blurRadius: 18, offset: const Offset(0, 10))],
       ),
       padding: const EdgeInsets.all(16),
       child: Column(
