@@ -474,20 +474,6 @@ class SettingsScreen extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Divider(height: 1, thickness: 2, color: sectionTitleColor.withValues(alpha: 0.2)),
             ),
-
-            // Quick Actions Header
-            Padding(
-              padding: const EdgeInsets.only(top: 8, bottom: 12),
-              child: Text(
-                'QUICK ACTIONS',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: sectionTitleColor.withValues(alpha: 0.6),
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ),
           ],
         ],
       ),
