@@ -468,12 +468,6 @@ class SettingsScreen extends StatelessWidget {
                 ),
               ),
             ),
-
-            // Section divider
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Divider(height: 1, thickness: 2, color: sectionTitleColor.withValues(alpha: 0.2)),
-            ),
           ],
         ],
       ),
