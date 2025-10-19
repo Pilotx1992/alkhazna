@@ -2695,12 +2695,609 @@ class ConflictDetail {
 
 ---
 
-## 🔄 19. Document History
+## 🔐 19. Legacy Encryption & Backup Compatibility
+
+### 19.1 Problem Statement: Legacy Backup Compatibility
+
+**Critical Issue for Existing Users:**
+
+المستخدمون القدامى الذين لديهم backups مشفرة بالنظام الحالي قد يواجهون مشاكل عند استخدام Smart Restore System الجديد:
+
+```
+User with old encrypted backup (v1.0)
+    ↓
+Updates to Smart Restore v1.1
+    ↓
+Attempts to restore backup
+    ↓
+❌ FAILURE: Decryption fails or key mismatch
+```
+
+**Root Causes:**
+1. ❌ تغيير في هيكل البيانات (UUID fields جديدة)
+2. ❌ احتمال تغيير في key derivation
+3. ❌ عدم وجود version detection في الـ backup format
+4. ❌ عدم وجود fallback mechanism
+
+---
+
+### 19.2 Current Encryption System Analysis
+
+#### 19.2.1 Current Architecture
+
+**الملفات الأساسية:**
+- `lib/backup/services/encryption_service.dart` - AES-256-GCM encryption
+- `lib/backup/services/key_manager.dart` - Master key management
+- `lib/backup/models/key_file_format.dart` - Key storage format
+
+**Current Encryption Flow:**
+```dart
+// BACKUP:
+1. Get master key from KeyManager (cloud + local)
+2. Encrypt database using AES-256-GCM
+3. Store encrypted data with metadata:
+   {
+     "encrypted": true,
+     "version": "1.0",      // ⚠️ Static version
+     "backup_id": "...",
+     "data": "...",         // Base64 ciphertext
+     "iv": "...",           // Nonce
+     "tag": "...",          // MAC
+     "checksum": "..."      // SHA256
+   }
+
+// RESTORE:
+1. Download encrypted backup
+2. Get master key from KeyManager
+3. Decrypt using AES-256-GCM
+4. Restore to Hive
+```
+
+#### 19.2.2 Current Key Management
+
+**Key Storage Strategy:**
+```dart
+// Master Key (256-bit AES)
+Location 1: Google Drive (primary)
+  └─ File: alkhazna_backup_keys.encrypted
+  └─ Format: KeyFileFormat v1.1
+  └─ Contains: user_email, google_id, key_bytes, checksum
+
+Location 2: Local Secure Storage (cache)
+  └─ Key: alkhazna_master_key_v2
+  └─ Format: Hex string
+```
+
+**Key Retrieval Priority:**
+```
+1. Try Google Drive (cloud key)
+2. Fallback to local secure storage
+3. Generate new key if neither exists
+```
+
+#### 19.2.3 Current Backup Format
+
+```json
+{
+  "encrypted": true,
+  "version": "1.0",           // ⚠️ No encryption version
+  "backup_id": "unique-id",
+  "original_size": 12345,
+  "timestamp": "2025-01-18T...",
+  "checksum": "sha256-...",
+  "data": "base64-ciphertext",
+  "iv": "base64-nonce",
+  "tag": "base64-mac"
+}
+```
+
+**Missing Fields for Compatibility:**
+- ❌ No `encryption_version` field
+- ❌ No `key_version` field
+- ❌ No `data_schema_version` field
+- ❌ No `migration_needed` flag
+
+---
+
+### 19.3 Proposed Solution: Multi-Version Decryption System
+
+#### 19.3.1 Enhanced Backup Metadata Format (v1.1+)
+
+```json
+{
+  "encrypted": true,
+  "format_version": "2.0",         // ✨ Overall backup format
+  "encryption_version": "1.1",     // ✨ Encryption algorithm version
+  "data_schema_version": "1.1",    // ✨ Data model version (UUID support)
+  "key_derivation": "AES-256-GCM", // ✨ Algorithm identifier
+  "backup_id": "unique-id",
+  "original_size": 12345,
+  "timestamp": "2025-01-18T...",
+  "checksum": "sha256-...",
+  "data": "base64-ciphertext",
+  "iv": "base64-nonce",
+  "tag": "base64-mac",
+
+  // ✨ New compatibility fields
+  "compatibility": {
+    "min_app_version": "1.1.0",
+    "created_by_version": "1.1.0",
+    "requires_migration": false,
+    "legacy_format": false
+  }
+}
+```
+
+#### 19.3.2 Version Detection Strategy
+
+**File:** `lib/backup/services/backup_version_detector.dart`
+
+```dart
+import 'package:flutter/foundation.dart';
+
+/// Detects backup format version and compatibility
+class BackupVersionDetector {
+  /// Detect backup format version
+  static BackupVersion detectVersion(Map<String, dynamic> backupData) {
+    // Check for v1.1+ format with explicit versioning
+    if (backupData.containsKey('format_version')) {
+      final formatVersion = backupData['format_version'];
+      final encryptionVersion = backupData['encryption_version'] ?? '1.0';
+      final schemaVersion = backupData['data_schema_version'] ?? '1.0';
+
+      return BackupVersion(
+        formatVersion: formatVersion.toString(),
+        encryptionVersion: encryptionVersion.toString(),
+        dataSchemaVersion: schemaVersion.toString(),
+        isLegacy: false,
+      );
+    }
+
+    // Legacy format (v1.0) - only has 'version' field
+    if (backupData.containsKey('version')) {
+      return BackupVersion(
+        formatVersion: '1.0',
+        encryptionVersion: '1.0',
+        dataSchemaVersion: '1.0',
+        isLegacy: true,
+      );
+    }
+
+    // Very old format - no version at all
+    if (backupData.containsKey('encrypted') &&
+        backupData.containsKey('data')) {
+      return BackupVersion(
+        formatVersion: '0.9',
+        encryptionVersion: '1.0',
+        dataSchemaVersion: '0.9',
+        isLegacy: true,
+      );
+    }
+
+    // Unknown format
+    return BackupVersion.unknown();
+  }
+
+  /// Check if backup is compatible with current app
+  static bool isCompatible(BackupVersion version) {
+    // We support all versions from 0.9 to 2.0
+    final supportedVersions = ['0.9', '1.0', '1.1', '2.0'];
+    return supportedVersions.contains(version.formatVersion);
+  }
+
+  /// Check if migration is needed
+  static bool needsMigration(BackupVersion version) {
+    // Legacy formats need migration to add UUIDs
+    return version.isLegacy;
+  }
+}
+
+/// Backup version information
+class BackupVersion {
+  final String formatVersion;
+  final String encryptionVersion;
+  final String dataSchemaVersion;
+  final bool isLegacy;
+
+  const BackupVersion({
+    required this.formatVersion,
+    required this.encryptionVersion,
+    required this.dataSchemaVersion,
+    required this.isLegacy,
+  });
+
+  factory BackupVersion.unknown() => const BackupVersion(
+    formatVersion: 'unknown',
+    encryptionVersion: 'unknown',
+    dataSchemaVersion: 'unknown',
+    isLegacy: false,
+  );
+
+  bool get isUnknown => formatVersion == 'unknown';
+}
+```
+
+#### 19.3.3 Multi-Version Decryption Service
+
+**File:** `lib/backup/services/legacy_decryption_service.dart`
+
+```dart
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
+import 'encryption_service.dart';
+import 'backup_version_detector.dart';
+
+/// Service for handling legacy backup decryption
+class LegacyDecryptionService {
+  final EncryptionService _encryptionService = EncryptionService();
+
+  /// Decrypt backup with automatic version detection
+  Future<Uint8List?> decryptBackupWithFallback({
+    required Map<String, dynamic> encryptedBackup,
+    required Uint8List masterKey,
+  }) async {
+    try {
+      // Step 1: Detect backup version
+      final version = BackupVersionDetector.detectVersion(encryptedBackup);
+
+      if (kDebugMode) {
+        print('🔍 Detected backup version:');
+        print('   Format: ${version.formatVersion}');
+        print('   Encryption: ${version.encryptionVersion}');
+        print('   Schema: ${version.dataSchemaVersion}');
+        print('   Legacy: ${version.isLegacy}');
+      }
+
+      // Step 2: Check compatibility
+      if (!BackupVersionDetector.isCompatible(version)) {
+        if (kDebugMode) {
+          print('❌ Unsupported backup version: ${version.formatVersion}');
+        }
+        return null;
+      }
+
+      // Step 3: Decrypt using appropriate method
+      Uint8List? decryptedData;
+
+      if (version.isLegacy) {
+        // Use legacy decryption (v1.0 format)
+        decryptedData = await _decryptLegacyFormat(
+          encryptedBackup: encryptedBackup,
+          masterKey: masterKey,
+          version: version,
+        );
+      } else {
+        // Use new decryption (v1.1+ format)
+        decryptedData = await _encryptionService.decryptDatabase(
+          encryptedBackup: encryptedBackup,
+          masterKey: masterKey,
+        );
+      }
+
+      if (decryptedData == null) {
+        if (kDebugMode) {
+          print('❌ Decryption failed for version ${version.formatVersion}');
+        }
+        return null;
+      }
+
+      if (kDebugMode) {
+        print('✅ Successfully decrypted ${version.isLegacy ? "legacy" : "modern"} backup');
+      }
+
+      return decryptedData;
+
+    } catch (e) {
+      if (kDebugMode) {
+        print('💥 Decryption with fallback failed: $e');
+      }
+      return null;
+    }
+  }
+
+  /// Decrypt legacy v1.0 format
+  Future<Uint8List?> _decryptLegacyFormat({
+    required Map<String, dynamic> encryptedBackup,
+    required Uint8List masterKey,
+    required BackupVersion version,
+  }) async {
+    try {
+      if (kDebugMode) {
+        print('🔓 Decrypting legacy format v${version.formatVersion}...');
+      }
+
+      // Legacy format uses same encryption, just different metadata
+      // We can reuse the existing decryptDatabase method
+      final decrypted = await _encryptionService.decryptDatabase(
+        encryptedBackup: encryptedBackup,
+        masterKey: masterKey,
+      );
+
+      if (decrypted != null && kDebugMode) {
+        print('✅ Legacy decryption successful');
+      }
+
+      return decrypted;
+
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Legacy decryption failed: $e');
+      }
+      return null;
+    }
+  }
+}
+```
+
+#### 19.3.4 Updated Restore Flow with Version Detection
+
+**Integration into BackupService:**
+
+```dart
+// lib/backup/services/backup_service.dart
+
+import 'legacy_decryption_service.dart';
+import 'backup_version_detector.dart';
+
+class BackupService extends ChangeNotifier {
+  final LegacyDecryptionService _legacyDecryption = LegacyDecryptionService();
+
+  Future<RestoreResult> startRestoreWithVersionDetection() async {
+    try {
+      // ... existing code for download ...
+
+      // Step 6: Decrypt with automatic version detection
+      _updateProgress(70, null, 'Decrypting backup...', RestoreStatus.decrypting);
+      final encryptedData = json.decode(utf8.decode(encryptedBytes)) as Map<String, dynamic>;
+
+      // ✨ Use legacy-aware decryption
+      final databaseBytes = await _legacyDecryption.decryptBackupWithFallback(
+        encryptedBackup: encryptedData,
+        masterKey: masterKey,
+      );
+
+      if (databaseBytes == null) {
+        _updateProgress(0, null, 'Failed to decrypt backup', RestoreStatus.failed);
+        return RestoreResult.failure('Failed to decrypt backup. The backup may be corrupted or incompatible.');
+      }
+
+      // Step 7: Check if migration needed
+      final version = BackupVersionDetector.detectVersion(encryptedData);
+      if (BackupVersionDetector.needsMigration(version)) {
+        _updateProgress(75, null, 'Migrating data format...', RestoreStatus.processing);
+        // Migration will happen automatically in DataMigrationService
+      }
+
+      // ... continue with restore ...
+
+    } catch (e) {
+      // ... error handling ...
+    }
+  }
+}
+```
+
+---
+
+### 19.4 Key Compatibility Matrix
+
+| Backup Version | Encryption | Key Format | Compatible | Migration Needed |
+|----------------|------------|------------|------------|------------------|
+| **0.9** (very old) | AES-256-GCM | v1.0 | ✅ Yes | ✅ Yes (add UUIDs) |
+| **1.0** (current) | AES-256-GCM | v1.1 | ✅ Yes | ✅ Yes (add UUIDs) |
+| **1.1** (new) | AES-256-GCM | v1.1 | ✅ Yes | ❌ No |
+| **2.0** (future) | AES-256-GCM | v2.0 | ✅ Yes | ⚠️ TBD |
+
+---
+
+### 19.5 Migration Strategy for Legacy Data
+
+When restoring a legacy backup (v1.0), the system will:
+
+```
+1. Detect version → "v1.0" (legacy)
+2. Decrypt successfully using existing AES-256-GCM
+3. Load data into Hive
+4. Trigger DataMigrationService.migrateToUUIDs()
+   ├─ Generate deterministic UUIDs for existing entries
+   ├─ Add inc_/out_ prefixes
+   └─ Update version field
+5. Save migrated data
+6. Continue with Smart Merge
+```
+
+**No data loss, fully automatic!**
+
+---
+
+### 19.6 Error Handling & User Communication
+
+#### 19.6.1 Decryption Failure Messages
+
+```dart
+if (decryptedData == null) {
+  final version = BackupVersionDetector.detectVersion(encryptedData);
+
+  if (version.isUnknown) {
+    return RestoreResult.failure(
+      'عذراً، تنسيق النسخة الاحتياطية غير معروف. قد تكون ملف تالف.'
+    );
+  }
+
+  if (!BackupVersionDetector.isCompatible(version)) {
+    return RestoreResult.failure(
+      'هذه النسخة الاحتياطية تم إنشاؤها بإصدار غير متوافق (${version.formatVersion}). '
+      'يرجى تحديث التطبيق إلى أحدث إصدار.'
+    );
+  }
+
+  return RestoreResult.failure(
+    'فشل فك تشفير النسخة الاحتياطية. تأكد من استخدام نفس حساب Google المستخدم في إنشاء النسخة.'
+  );
+}
+```
+
+#### 19.6.2 Migration Progress Dialog
+
+```dart
+// Show dialog for legacy backups
+if (BackupVersionDetector.needsMigration(version)) {
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => AlertDialog(
+      title: Row(
+        children: [
+          Icon(Icons.upgrade, color: Colors.blue),
+          SizedBox(width: 8),
+          Text('ترقية البيانات'),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(height: 16),
+          Text(
+            'جاري ترقية تنسيق البيانات إلى الإصدار الجديد...\n'
+            'قد يستغرق هذا بضع ثوانٍ.',
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    ),
+  );
+}
+```
+
+---
+
+### 19.7 Testing Strategy for Legacy Compatibility
+
+#### 19.7.1 Test Scenarios
+
+| Test Case | Description | Expected Result |
+|-----------|-------------|-----------------|
+| **TC-1** | Restore v1.0 backup with v1.1 app | ✅ Success with migration |
+| **TC-2** | Restore v1.1 backup with v1.1 app | ✅ Success without migration |
+| **TC-3** | Restore v0.9 backup with v1.1 app | ✅ Success with migration |
+| **TC-4** | Wrong encryption key | ❌ Clear error message |
+| **TC-5** | Corrupted backup file | ❌ Checksum validation fails |
+| **TC-6** | Different Google account | ❌ Key ownership validation fails |
+
+#### 19.7.2 Test Data Preparation
+
+```dart
+// Generate test backups for each version
+Future<void> generateTestBackups() async {
+  // v1.0 backup (legacy)
+  final v1_0_backup = {
+    'encrypted': true,
+    'version': '1.0',
+    'backup_id': 'test-v1.0',
+    // ... encrypted data without UUIDs
+  };
+
+  // v1.1 backup (new)
+  final v1_1_backup = {
+    'encrypted': true,
+    'format_version': '2.0',
+    'encryption_version': '1.1',
+    'data_schema_version': '1.1',
+    'backup_id': 'test-v1.1',
+    // ... encrypted data with UUIDs
+  };
+
+  // Test decryption for both
+  await testDecryption(v1_0_backup);
+  await testDecryption(v1_1_backup);
+}
+```
+
+---
+
+### 19.8 Implementation Checklist
+
+**Phase 1: Version Detection (2 days)**
+- [ ] Create BackupVersionDetector class
+- [ ] Add version detection logic
+- [ ] Write unit tests for version detection
+- [ ] Test with sample backups
+
+**Phase 2: Legacy Decryption (2 days)**
+- [ ] Create LegacyDecryptionService class
+- [ ] Implement fallback decryption
+- [ ] Add error handling
+- [ ] Test with real v1.0 backups
+
+**Phase 3: Integration (2 days)**
+- [ ] Update BackupService restore flow
+- [ ] Add version-aware encryption for new backups
+- [ ] Update UI messages
+- [ ] Test end-to-end restore
+
+**Phase 4: Testing & Validation (2 days)**
+- [ ] Create test backup files (v0.9, v1.0, v1.1)
+- [ ] Test all migration paths
+- [ ] Validate data integrity
+- [ ] User acceptance testing
+
+**Total Estimated Time:** 8 days
+
+---
+
+### 19.9 Future-Proofing
+
+**For Future Encryption Algorithm Changes:**
+
+```dart
+// Encryption version mapping
+enum EncryptionAlgorithm {
+  AES_256_GCM_V1('1.0', 'AES-256-GCM'),
+  AES_256_GCM_V2('1.1', 'AES-256-GCM-Enhanced'),
+  CHACHA20_POLY1305('2.0', 'ChaCha20-Poly1305'),
+  ;
+
+  final String version;
+  final String algorithm;
+
+  const EncryptionAlgorithm(this.version, this.algorithm);
+
+  static EncryptionAlgorithm fromVersion(String version) {
+    return values.firstWhere(
+      (e) => e.version == version,
+      orElse: () => AES_256_GCM_V1,
+    );
+  }
+}
+```
+
+---
+
+### 19.10 Security Considerations
+
+**✅ Safe Practices:**
+1. **Key Isolation:** Legacy and new keys use same secure storage
+2. **Version Pinning:** Each backup records exact encryption version
+3. **Checksum Validation:** Integrity checked before decryption
+4. **User Verification:** Email + Google ID match required
+5. **Graceful Failure:** Never expose raw error details to user
+
+**❌ Security Risks Mitigated:**
+- ✅ Prevent key downgrade attacks
+- ✅ Detect tampered backup files
+- ✅ Avoid key reuse across accounts
+- ✅ Protect against version confusion attacks
+
+---
+
+## 🔄 20. Document History
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0.0 | 2025-01-18 | Dev Team | Initial PRD creation |
 | 1.1.0 | 2025-01-18 | Dev Team | Added 4 critical enhancements: Safety Backup, Extended Stats, UUID Prefixes, Structured Logging |
+| 1.1.1 | 2025-01-19 | Dev Team | Added Legacy Encryption & Backup Compatibility section (Section 19) |
 
 ---
 
