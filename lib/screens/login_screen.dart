@@ -258,7 +258,7 @@ class _LoginScreenState extends State<LoginScreen>
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF2E7D32).withOpacity(0.2),
+              color: const Color(0xFF2E7D32).withValues(alpha:0.2),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -502,7 +502,7 @@ class _LoginScreenState extends State<LoginScreen>
               backgroundColor: const Color(0xFF2E7D32),
               foregroundColor: Colors.white,
               elevation: 2,
-              shadowColor: const Color(0xFF2E7D32).withOpacity(0.3),
+              shadowColor: const Color(0xFF2E7D32).withValues(alpha:0.3),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -732,7 +732,7 @@ class _BiometricPromptSheetState extends State<_BiometricPromptSheet>
                   width: 80,
                   height: 80,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF2E7D32).withOpacity(0.1),
+                    color: const Color(0xFF2E7D32).withValues(alpha:0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(

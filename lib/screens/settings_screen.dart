@@ -563,56 +563,71 @@ class SettingsScreen extends StatelessWidget {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // ignore: deprecated_member_use
             RadioListTile<int>(
               title: const Text('Immediate'),
               subtitle: const Text('Lock right away'),
               value: 0,
+              // ignore: deprecated_member_use
               groupValue: currentValue,
               activeColor: cs.primary,
+              // ignore: deprecated_member_use
               onChanged: (value) {
                 securityService.setAutoLockTimeout(value!);
                 Navigator.pop(context);
               },
             ),
+            // ignore: deprecated_member_use
             RadioListTile<int>(
               title: const Text('30 seconds'),
               subtitle: const Text('For quick task switching'),
               value: 30,
+              // ignore: deprecated_member_use
               groupValue: currentValue,
               activeColor: cs.primary,
+              // ignore: deprecated_member_use
               onChanged: (value) {
                 securityService.setAutoLockTimeout(value!);
                 Navigator.pop(context);
               },
             ),
+            // ignore: deprecated_member_use
             RadioListTile<int>(
               title: const Text('1 minute'),
               subtitle: const Text('For moderate multitasking'),
               value: 60,
+              // ignore: deprecated_member_use
               groupValue: currentValue,
               activeColor: cs.primary,
+              // ignore: deprecated_member_use
               onChanged: (value) {
                 securityService.setAutoLockTimeout(value!);
                 Navigator.pop(context);
               },
             ),
+            // ignore: deprecated_member_use
             RadioListTile<int>(
               title: const Text('5 minutes'),
               subtitle: const Text('For active usage'),
               value: 300,
+              // ignore: deprecated_member_use
               groupValue: currentValue,
               activeColor: cs.primary,
+              // ignore: deprecated_member_use
               onChanged: (value) {
                 securityService.setAutoLockTimeout(value!);
                 Navigator.pop(context);
               },
             ),
+            // ignore: deprecated_member_use
             RadioListTile<int>(
               title: const Text('Never'),
               subtitle: const Text('Disable auto-lock'),
               value: -1,
+              // ignore: deprecated_member_use
               groupValue: currentValue,
               activeColor: cs.primary,
+              // ignore: deprecated_member_use
               onChanged: (value) {
                 securityService.setAutoLockTimeout(value!);
                 Navigator.pop(context);
@@ -645,45 +660,57 @@ class SettingsScreen extends StatelessWidget {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // ignore: deprecated_member_use
             RadioListTile<int>(
               title: const Text('5 minutes'),
               subtitle: const Text('Short sessions'),
               value: 5,
+              // ignore: deprecated_member_use
               groupValue: currentValue,
               activeColor: cs.primary,
+              // ignore: deprecated_member_use
               onChanged: (value) {
                 securityService.setSessionDuration(value!);
                 Navigator.pop(context);
               },
             ),
+            // ignore: deprecated_member_use
             RadioListTile<int>(
               title: const Text('15 minutes'),
               subtitle: const Text('Balanced (recommended)'),
               value: 15,
+              // ignore: deprecated_member_use
               groupValue: currentValue,
               activeColor: cs.primary,
+              // ignore: deprecated_member_use
               onChanged: (value) {
                 securityService.setSessionDuration(value!);
                 Navigator.pop(context);
               },
             ),
+            // ignore: deprecated_member_use
             RadioListTile<int>(
               title: const Text('30 minutes'),
               subtitle: const Text('Extended work'),
               value: 30,
+              // ignore: deprecated_member_use
               groupValue: currentValue,
               activeColor: cs.primary,
+              // ignore: deprecated_member_use
               onChanged: (value) {
                 securityService.setSessionDuration(value!);
                 Navigator.pop(context);
               },
             ),
+            // ignore: deprecated_member_use
             RadioListTile<int>(
               title: const Text('1 hour'),
               subtitle: const Text('Long tasks'),
               value: 60,
+              // ignore: deprecated_member_use
               groupValue: currentValue,
               activeColor: cs.primary,
+              // ignore: deprecated_member_use
               onChanged: (value) {
                 securityService.setSessionDuration(value!);
                 Navigator.pop(context);

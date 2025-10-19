@@ -798,7 +798,7 @@ class BackupService extends ChangeNotifier {
       final totalEntries = localIncomeCount + localOutcomeCount + remoteIncomeCount + remoteOutcomeCount;
 
       if (totalEntries > 500) {
-        _logger.i('[Restore] Large dataset detected (${totalEntries} entries) - consider using isolate for future optimization');
+        _logger.i('[Restore] Large dataset detected ($totalEntries entries) - consider using isolate for future optimization');
       }
 
       final tracker = MergeTracker()..start();

@@ -118,7 +118,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
     );
 
     final surfaceCard = isDark ? const Color(0xFF1C2B39) : Colors.white;
-    final sectionTitleColor = isDark ? Colors.white.withOpacity(0.92) : cs.onSurface;
+    final sectionTitleColor = isDark ? Colors.white.withValues(alpha:0.92) : cs.onSurface;
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0E1C28) : cs.surface,
@@ -162,7 +162,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
                           width: 78,
                           height: 78,
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.12),
+                            color: Colors.white.withValues(alpha:0.12),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(Icons.cloud_sync_rounded, color: Colors.white, size: 36),
@@ -185,7 +185,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 12,
-                            color: isDark ? Colors.white.withOpacity(0.55) : cs.onSurfaceVariant,
+                            color: isDark ? Colors.white.withValues(alpha:0.55) : cs.onSurfaceVariant,
                           ),
                         ),
                       ),
@@ -210,7 +210,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
         color: surfaceCard,
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.35), blurRadius: 18, offset: const Offset(0, 10)),
+          BoxShadow(color: Colors.black.withValues(alpha:0.35), blurRadius: 18, offset: const Offset(0, 10)),
         ],
       ),
       padding: const EdgeInsets.all(16),
@@ -221,7 +221,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
               CircleAvatar(
                 radius: 22,
                 backgroundImage: user?.photoUrl != null ? NetworkImage(user!.photoUrl!) : null,
-                backgroundColor: cs.primary.withOpacity(0.12),
+                backgroundColor: cs.primary.withValues(alpha:0.12),
                 child: user?.photoUrl == null
                     ? Icon(isConnected ? Icons.person : Icons.cloud_off, color: cs.primary)
                     : null,
@@ -240,7 +240,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
                     const SizedBox(height: 2),
                     Text(
                       isConnected ? user.email : 'Sign in to enable backup',
-                      style: TextStyle(color: sectionTitleColor.withOpacity(0.65), fontSize: 13),
+                      style: TextStyle(color: sectionTitleColor.withValues(alpha:0.65), fontSize: 13),
                     ),
                   ],
                 ),
@@ -271,7 +271,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
                 Expanded(
                   child: Text(
                     'Last backup: ${_formatBackupTime(_lastBackupTime!)}',
-                    style: TextStyle(color: sectionTitleColor.withOpacity(0.72), fontSize: 13, fontWeight: FontWeight.w500),
+                    style: TextStyle(color: sectionTitleColor.withValues(alpha:0.72), fontSize: 13, fontWeight: FontWeight.w500),
                   ),
                 ),
               ],
@@ -308,7 +308,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
       decoration: BoxDecoration(
         color: surfaceCard,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.35), blurRadius: 18, offset: const Offset(0, 10))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha:0.35), blurRadius: 18, offset: const Offset(0, 10))],
       ),
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -328,7 +328,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
                   borderRadius: BorderRadius.circular(28),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF12C9B6).withOpacity(0.35),
+                      color: const Color(0xFF12C9B6).withValues(alpha:0.35),
                       blurRadius: 24,
                       spreadRadius: 1,
                       offset: const Offset(0, 8),
@@ -376,7 +376,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
       decoration: BoxDecoration(
         color: surfaceCard,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.35), blurRadius: 18, offset: const Offset(0, 10))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha:0.35), blurRadius: 18, offset: const Offset(0, 10))],
       ),
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -391,7 +391,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
           ),
           const SizedBox(height: 6),
           Text('Export and import your data for sharing or migration.',
-              style: TextStyle(color: sectionTitleColor.withOpacity(0.70), fontSize: 13)),
+              style: TextStyle(color: sectionTitleColor.withValues(alpha:0.70), fontSize: 13)),
           const SizedBox(height: 14),
           OutlinedButton.icon(
             onPressed: () {},
@@ -431,12 +431,12 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
     }) {
       return Column(
         children: [
-          if (topDivider) Divider(height: 1, color: sectionTitleColor.withOpacity(0.12)),
+          if (topDivider) Divider(height: 1, color: sectionTitleColor.withValues(alpha:0.12)),
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 14),
             child: Row(
               children: [
-                Icon(icon, color: sectionTitleColor.withOpacity(0.8)),
+                Icon(icon, color: sectionTitleColor.withValues(alpha:0.8)),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -456,7 +456,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
       decoration: BoxDecoration(
         color: surfaceCard,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.35), blurRadius: 18, offset: const Offset(0, 10))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha:0.35), blurRadius: 18, offset: const Offset(0, 10))],
       ),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
       child: Column(
@@ -470,7 +470,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
                 trailing: Switch.adaptive(
                   value: _backupFrequency != BackupFrequency.off,
                   onChanged: (v) => _onBackupFrequencyChanged(v ? 'daily' : 'off'),
-                  activeColor: cs.primary,
+                  activeTrackColor: cs.primary,
                 ),
           ),
           row(
@@ -483,7 +483,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
                 children: [
                   Text(
                     _backupFrequency == BackupFrequency.off ? 'Off' : toBeginningOfSentenceCase(_backupFrequency.displayName.toLowerCase())!,
-                    style: TextStyle(color: sectionTitleColor.withOpacity(0.75)),
+                    style: TextStyle(color: sectionTitleColor.withValues(alpha:0.75)),
                   ),
                   const SizedBox(width: 6),
                   Icon(Icons.chevron_right, color: sectionTitleColor),
@@ -501,7 +501,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
                 children: [
                   Text(
                     _networkPreference == NetworkPreference.wifiOnly ? 'Wi-Fi only' : 'Any network', 
-                    style: TextStyle(color: sectionTitleColor.withOpacity(0.75))
+                    style: TextStyle(color: sectionTitleColor.withValues(alpha:0.75))
                   ),
                   const SizedBox(width: 6),
                   Icon(Icons.chevron_right, color: sectionTitleColor),

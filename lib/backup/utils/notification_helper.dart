@@ -6,8 +6,8 @@ class NotificationHelper {
   factory NotificationHelper() => _instance;
   NotificationHelper._internal();
 
-  static const String CHANNEL_ID = 'alkhazna_backup_channel';
-  static const String REMINDER_CHANNEL_ID = 'alkhazna_reminder_channel';
+  static const String channelId = 'alkhazna_backup_channel';
+  static const String reminderChannelId = 'alkhazna_reminder_channel';
   
   final FlutterLocalNotificationsPlugin _notifications = FlutterLocalNotificationsPlugin();
   bool _initialized = false;
@@ -59,7 +59,7 @@ class NotificationHelper {
   Future<void> _createNotificationChannels() async {
     // Backup progress channel
     const backupChannel = AndroidNotificationChannel(
-      CHANNEL_ID,
+      channelId,
       'Backup Notifications',
       description: 'Notifications for backup and restore operations',
       importance: Importance.low,
@@ -68,7 +68,7 @@ class NotificationHelper {
 
     // Reminder channel
     const reminderChannel = AndroidNotificationChannel(
-      REMINDER_CHANNEL_ID,
+      reminderChannelId,
       'Backup Reminders',
       description: 'Reminders to create backups',
       importance: Importance.defaultImportance,
@@ -101,7 +101,7 @@ class NotificationHelper {
         '$message ($percentage%)',
         NotificationDetails(
           android: AndroidNotificationDetails(
-            CHANNEL_ID,
+            channelId,
             'Backup Notifications',
             channelDescription: 'Notifications for backup operations',
             ongoing: true,
@@ -143,7 +143,7 @@ class NotificationHelper {
         '$message ($percentage%)',
         NotificationDetails(
           android: AndroidNotificationDetails(
-            CHANNEL_ID,
+            channelId,
             'Backup Notifications',
             channelDescription: 'Notifications for restore operations',
             ongoing: true,
@@ -186,7 +186,7 @@ class NotificationHelper {
         details ?? message,
         NotificationDetails(
           android: AndroidNotificationDetails(
-            CHANNEL_ID,
+            channelId,
             'Backup Notifications',
             channelDescription: 'Backup completion notifications',
             importance: Importance.defaultImportance,
@@ -229,7 +229,7 @@ class NotificationHelper {
         details ?? message,
         NotificationDetails(
           android: AndroidNotificationDetails(
-            CHANNEL_ID,
+            channelId,
             'Backup Notifications',
             channelDescription: 'Restore completion notifications',
             importance: Importance.defaultImportance,
@@ -269,7 +269,7 @@ class NotificationHelper {
         body,
         NotificationDetails(
           android: AndroidNotificationDetails(
-            REMINDER_CHANNEL_ID,
+            reminderChannelId,
             'Backup Reminders',
             channelDescription: 'Reminders to create backups',
             importance: Importance.defaultImportance,

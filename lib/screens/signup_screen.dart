@@ -588,7 +588,7 @@ class _SignupScreenState extends State<SignupScreen>
               backgroundColor: const Color(0xFF2E7D32),
               foregroundColor: Colors.white,
               elevation: 2,
-              shadowColor: const Color(0xFF2E7D32).withOpacity(0.3),
+              shadowColor: const Color(0xFF2E7D32).withValues(alpha:0.3),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -623,7 +623,7 @@ class _SignupScreenState extends State<SignupScreen>
               child: Text(
                 'or',
                 style: TextStyle(
-                  color: const Color(0xFF757575).withOpacity(0.7),
+                  color: const Color(0xFF757575).withValues(alpha:0.7),
                   fontSize: 14,
                 ),
               ),
@@ -1110,7 +1110,7 @@ class _AccountSetupFlowState extends State<_AccountSetupFlow> {
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF2E7D32).withOpacity(0.2),
+                  color: const Color(0xFF2E7D32).withValues(alpha:0.2),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),

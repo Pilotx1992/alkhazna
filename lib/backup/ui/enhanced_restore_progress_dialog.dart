@@ -4,7 +4,6 @@ import '../models/backup_status.dart';
 import '../models/restore_result.dart';
 import '../services/backup_service.dart';
 import 'package:percent_indicator/percent_indicator.dart';
-import 'package:flutter/foundation.dart';
 
 /// Enhanced restore progress dialog with Lottie animations
 /// Shows beautiful animated progress during restore operations

@@ -454,6 +454,7 @@ class _BackupProgressSheetState extends State<BackupProgressSheet> {
               Navigator.pop(context);
               await _backupService.cancelCurrentOperation();
               if (!mounted) return;
+              // ignore: use_build_context_synchronously
               Navigator.pop(context);
             },
             child: const Text('Yes', style: TextStyle(color: Colors.red)),

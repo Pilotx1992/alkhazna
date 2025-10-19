@@ -215,6 +215,8 @@ class _BackupBottomSheetState extends State<BackupBottomSheet> {
       // Start backup
       final success = await backupService.createBackup();
       
+      if (!mounted) return;
+      
       if (success) {
         _showSnackBar('✅ Backup completed successfully!');
         Navigator.pop(context);

@@ -198,7 +198,7 @@ class NotificationSettingsScreen extends StatelessWidget {
               // Switch
               Switch.adaptive(
                 value: service.notificationsEnabled,
-                activeColor: cs.primary,
+                activeTrackColor: cs.primary,
                 onChanged: (value) async {
                   await service.toggleNotifications();
                   if (context.mounted) {
@@ -357,7 +357,7 @@ class NotificationSettingsScreen extends StatelessWidget {
         // Switch
         Switch.adaptive(
           value: value,
-          activeColor: iconColor,
+          activeTrackColor: iconColor,
           onChanged: onChanged,
         ),
       ],

@@ -101,6 +101,7 @@ class DataSharingService {
 
       // Try to share file
       try {
+        // ignore: deprecated_member_use
         await Share.shareXFiles(
           [XFile(filePath)],
           text: 'AlKhazna Data - $filename',
