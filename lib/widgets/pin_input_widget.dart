@@ -264,11 +264,14 @@ class PinInputWidgetState extends State<PinInputWidget>
             ],
           ),
           const SizedBox(height: 16),
-          // Row 3: 7 8 9
+          // Row 3: [biometric/7] 8 9
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _buildKey('7'),
+              // Show biometric button or 7
+              widget.showBiometricButton
+                  ? _buildBiometricKeypadButton()
+                  : _buildKey('7'),
               const SizedBox(width: 16),
               _buildKey('8'),
               const SizedBox(width: 16),
@@ -276,14 +279,11 @@ class PinInputWidgetState extends State<PinInputWidget>
             ],
           ),
           const SizedBox(height: 16),
-          // Row 4: [biometric/empty] 0 [delete]
+          // Row 4: [empty] 0 [delete]
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Show biometric button or empty space
-              widget.showBiometricButton
-                  ? _buildBiometricKeypadButton()
-                  : const SizedBox(width: 70, height: 70),
+              const SizedBox(width: 70, height: 70),
               const SizedBox(width: 16),
               _buildKey('0'),
               const SizedBox(width: 16),
@@ -356,10 +356,27 @@ class PinInputWidgetState extends State<PinInputWidget>
           width: 70,
           height: 70,
           alignment: Alignment.center,
-          child: Icon(
-            Icons.fingerprint,
-            size: 32,
-            color: isDisabled ? Colors.grey[400] : Colors.indigo,
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.95, end: 1.05),
+            duration: const Duration(milliseconds: 1500),
+            curve: Curves.easeInOut,
+            builder: (context, scale, child) {
+              return Transform.scale(
+                scale: scale,
+                child: child,
+              );
+            },
+            onEnd: () {
+              // Restart animation
+              if (mounted) {
+                setState(() {});
+              }
+            },
+            child: Icon(
+              Icons.fingerprint,
+              size: 32,
+              color: isDisabled ? Colors.grey[400] : Colors.indigo,
+            ),
           ),
         ),
       ),

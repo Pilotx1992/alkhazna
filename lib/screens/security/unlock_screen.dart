@@ -24,6 +24,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
   @override
   void initState() {
     super.initState();
+    _checkBiometricAutoPrompt();
     _startLockoutTimer();
   }
 
@@ -31,6 +32,17 @@ class _UnlockScreenState extends State<UnlockScreen> {
   void dispose() {
     _lockoutTimer?.cancel();
     super.dispose();
+  }
+
+  /// Auto-prompt biometric on screen load
+  void _checkBiometricAutoPrompt() async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    if (mounted) {
+      final securityService = context.read<SecurityService>();
+      if (securityService.isBiometricEnabled && !securityService.isLockedOut) {
+        _onBiometricTap();
+      }
+    }
   }
 
   /// Start timer for lockout countdown
@@ -128,11 +140,40 @@ class _UnlockScreenState extends State<UnlockScreen> {
     }
   }
 
+  void _onBiometricTap() async {
+    final securityService = context.read<SecurityService>();
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final success = await securityService.authenticateWithBiometric();
+
+      if (success) {
+        // Success! App is now unlocked
+        _pinKey.currentState?.triggerSuccessHaptic();
+      } else {
+        // Biometric failed, allow PIN entry
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Biometric failed. Use PIN instead';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Biometric error. Use PIN instead';
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final securityService = context.watch<SecurityService>();
     final isLockedOut = securityService.isLockedOut;
+    final biometricEnabled = securityService.isBiometricEnabled;
 
     return PopScope(
       canPop: false, // Prevent back navigation when locked
@@ -169,9 +210,45 @@ class _UnlockScreenState extends State<UnlockScreen> {
                       ),
                 ),
 
-                const SizedBox(height: 48),
+                const SizedBox(height: 32),
 
-                // PIN Input
+                // Lockout message
+                if (isLockedOut) ...[
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.red.shade200),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(Icons.lock_clock, color: Colors.red, size: 32),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Too Many Failed Attempts',
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Please wait $_remainingSeconds seconds',
+                          style: TextStyle(
+                            color: Colors.red.shade700,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+
+                // PIN Input (smaller, less prominent)
                 PinInputWidget(
                   key: _pinKey,
                   title: isLockedOut ? 'Locked' : 'Enter PIN',
@@ -181,7 +258,8 @@ class _UnlockScreenState extends State<UnlockScreen> {
                   onPinComplete: _onPinComplete,
                   errorMessage: _errorMessage,
                   isLoading: _isLoading || isLockedOut,
-                  showBiometricButton: false,
+                  showBiometricButton: biometricEnabled && !isLockedOut,
+                  onBiometricTap: biometricEnabled && !isLockedOut ? _onBiometricTap : null,
                 ),
               ],
             ),
@@ -190,5 +268,4 @@ class _UnlockScreenState extends State<UnlockScreen> {
       ),
     );
   }
-
 }
