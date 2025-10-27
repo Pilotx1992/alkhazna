@@ -414,15 +414,64 @@ class PdfService {
     final boldFont = pw.Font.ttf(await rootBundle
         .load('assets/fonts/NotoSansArabic-VariableFont_wdth,wght.ttf'));
 
-    doc.addPage(
-      pw.Page(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(20),
-        build: (pw.Context context) {
-          return pw.Column(
+    // Split entries into pages (max 14 rows per page, same as _addPaginatedTablePages)
+    const int maxRowsPerPage = 14;
+    final pages = <List<IncomeEntry>>[];
+
+    for (int i = 0; i < zeroAmountEntries.length; i += maxRowsPerPage) {
+      int end = (i + maxRowsPerPage < zeroAmountEntries.length)
+          ? i + maxRowsPerPage
+          : zeroAmountEntries.length;
+      final chunk = zeroAmountEntries.sublist(i, end);
+      pages.add(chunk);
+    }
+
+    // Create a page for each chunk
+    for (int pageIndex = 0; pageIndex < pages.length; pageIndex++) {
+      final chunk = pages[pageIndex];
+      final isLastPage = pageIndex == pages.length - 1;
+
+      // Build data rows
+      final dataRows = <pw.TableRow>[];
+      for (int i = 0; i < chunk.length; i++) {
+        final incomeEntry = chunk[i];
+        final globalIndex = pageIndex * maxRowsPerPage + i + 1;
+        final arabicName = _fixArabicText(incomeEntry.name);
+
+        dataRows.add(
+          pw.TableRow(
+            decoration: pw.BoxDecoration(
+              color: i % 2 == 0 ? PdfColors.grey50 : PdfColors.white,
+            ),
+            children: [
+              _buildExcelTableCell(arabicName, font),
+              _buildExcelTableCell('$globalIndex', font),
+            ],
+          ),
+        );
+      }
+
+      // Build complete table rows including header
+      final tableRows = <pw.TableRow>[
+        // Header row
+        pw.TableRow(
+          decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+          children: [
+            _buildExcelTableCell('الاسم', boldFont, isHeader: true),
+            _buildExcelTableCell('م', boldFont, isHeader: true),
+          ],
+        ),
+        ...dataRows,
+      ];
+
+      doc.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(20),
+          build: (context) => pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              // Header with Excel-style design
+              // Header using _buildReportHeader like other reports
               pw.Container(
                 width: double.infinity,
                 padding: const pw.EdgeInsets.all(15),
@@ -455,8 +504,7 @@ class PdfService {
                 ),
               ),
               pw.SizedBox(height: 20),
-
-              // Excel-style table
+              // Table with Expanded like other reports
               pw.Expanded(
                 child: pw.Table(
                   border: pw.TableBorder.all(color: PdfColors.black, width: 0.5),
@@ -464,79 +512,53 @@ class PdfService {
                     0: const pw.FlexColumnWidth(4), // Name
                     1: const pw.FlexColumnWidth(1), // Index
                   },
-                  children: [
-                    // Header row
-                    pw.TableRow(
-                      decoration: const pw.BoxDecoration(color: PdfColors.grey300),
-                      children: [
-                        _buildExcelTableCell('الاسم', boldFont, isHeader: true),
-                        _buildExcelTableCell('م', boldFont, isHeader: true),
-                      ],
-                    ),
-                    // Data rows
-                    ...zeroAmountEntries.asMap().entries.map((entry) {
-                      final index = entry.key + 1;
-                      final incomeEntry = entry.value;
-                      // Fix Arabic text direction and rendering
-                      final arabicName = _fixArabicText(incomeEntry.name);
-                      return pw.TableRow(
-                        decoration: pw.BoxDecoration(
-                          color: index % 2 == 0 ? PdfColors.grey50 : PdfColors.white,
-                        ),
-                        children: [
-                          _buildExcelTableCell(arabicName, font),
-                          _buildExcelTableCell('$index', font),
-                        ],
-                      );
-                    }),
-                  ],
+                  children: tableRows,
                 ),
               ),
-
               pw.SizedBox(height: 10),
-
-              // Footer
-              pw.Container(
-                width: double.infinity,
-                padding: const pw.EdgeInsets.all(8),
-                decoration: pw.BoxDecoration(
-                  color: PdfColors.grey100,
-                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
-                ),
-                child: pw.Column(
-                  children: [
-                    pw.Text(
-                      ' عدد: ${zeroAmountEntries.length}',
-                      style: pw.TextStyle(
-                        font: boldFont,
-                        fontSize: 12,
-                        color: PdfColors.black,
+              // Total count on last page
+              if (isLastPage)
+                pw.Container(
+                  width: double.infinity,
+                  padding: const pw.EdgeInsets.all(8),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColors.grey100,
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                  ),
+                  child: pw.Column(
+                    children: [
+                      pw.Text(
+                        'العدد الإجمالي: ${zeroAmountEntries.length}',
+                        style: pw.TextStyle(
+                          font: boldFont,
+                          fontSize: 12,
+                          color: PdfColors.black,
+                        ),
+                        textDirection: pw.TextDirection.rtl,
                       ),
-                      textDirection: pw.TextDirection.rtl,
-                    ),
-                    pw.SizedBox(height: 4),
-                    pw.Text(
-                      ' تاريخ ${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
-                      style: pw.TextStyle(
-                        font: font,
-                        fontSize: 10,
-                        color: PdfColors.grey600,
+                      pw.SizedBox(height: 4),
+                      pw.Text(
+                        'تاريخ ${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
+                        style: pw.TextStyle(
+                          font: font,
+                          fontSize: 10,
+                          color: PdfColors.grey600,
+                        ),
+                        textDirection: pw.TextDirection.rtl,
                       ),
-                      textDirection: pw.TextDirection.rtl,
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
             ],
-          );
-        },
-      ),
-    );
+          ),
+        ),
+      );
+    }
 
     // Share the PDF with proper filename
     await Printing.sharePdf(
       bytes: await doc.save(),
-      filename: '${month}_$year.pdf',
+      filename: 'zero_names_${month}_$year.pdf',
     );
   }
 
