@@ -558,7 +558,7 @@ class PdfService {
     // Share the PDF with proper filename
     await Printing.sharePdf(
       bytes: await doc.save(),
-      filename: 'zero_names_${month}_$year.pdf',
+      filename: 'Unpaid_${month}_$year.pdf',
     );
   }
 
